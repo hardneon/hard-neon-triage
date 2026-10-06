@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hard Neon: Triage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@500;700&family=Neonderthaw&family=Tilt+Neon&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="data/strings.js"></script>
+  <script src="data/settings.js"></script>
+  <script src="data/abilities.js"></script>
+  <script src="data/allies.js"></script>
+  <script src="data/boss.js"></script>
+  <script src="data/nicknames.js"></script>
+  <script src="game.js"></script>
+</head>
+<body>
+  <h1 id="title"></h1>
+  <div id="version" class="version"></div>
+
+  <section id="setup" class="panel">
+    <p id="desktopNote" class="note"></p>
+    <details id="howTo" class="howto" open></details>
+    <h2 id="setupTitle"></h2>
+    <form id="setupForm"></form>
+  </section>
+
+  <main id="game" hidden>
+    <section class="panel cluster">
+      <div id="bossBubble" class="bubble boss left"></div>
+      <div class="row"><strong id="bossName"></strong><span id="phase" class="muted"></span><span id="timer" class="timer"></span></div>
+      <div id="bossHp"></div>
+      <div id="telegraphs" aria-live="polite"></div>
+
+      <div class="zones">
+        <div class="zone">
+          <div class="zhead"><span id="frontTitle"></span><span id="frontArea" class="area"></span></div>
+          <div id="frontList" class="frames"></div>
+        </div>
+        <div class="zone">
+          <div class="zhead"><span id="backTitle"></span><span id="backArea" class="area"></span></div>
+          <div id="backList" class="frames"></div>
+        </div>
+      </div>
+
+      <div id="mana"></div>
+      <div id="cast"></div>
+      <div id="gcd"></div>
+      <div id="abilities" class="abilities"></div>
+      <div id="msg" class="msg" role="status"></div>
+      <div id="controls" class="controls"></div>
+    </section>
+
+    <details class="panel logbox">
+      <summary id="logTitle"></summary>
+      <div id="log" class="log" role="log"></div>
+      <button id="showResult" type="button" class="primary" hidden></button>
+    </details>
+
+    <div id="pauseOverlay" class="overlay" hidden><p></p></div>
+    <section id="result" class="panel result" hidden></section>
+  </main>
+</body>
+</html>
