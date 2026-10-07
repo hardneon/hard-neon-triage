@@ -275,3 +275,5 @@ a.button.support-btn:hover { --fill-c: #2A0F22; }
 /* ally class icon beside the name */
 .ficon { width: 18px; height: 18px; align-self: center; flex: 0 0 auto; opacity: .85; }
 .ficon svg { width: 100%; height: 100%; display: block; }
+
+.verdict.lost { --edge-c: var(--warn); }

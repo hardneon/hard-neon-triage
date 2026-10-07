@@ -8,6 +8,9 @@
   // ---------- helpers ----------
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  // Always pass a real boolean: classList.toggle(name, undefined) FLIPS the class every call,
+  // which made buttons flash every frame (a photosensitivity hazard).
+  const setCls = (e, c, on) => e.classList.toggle(c, !!on);
   const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
   const pct = c => c.hp / c.maxHp;
   const fmtS = n => n.toFixed(1);
@@ -489,7 +492,9 @@
   // Post-fight verdict per ally. Weights and thresholds in allies.js (party.review).
   function verdict(a) {
     const R = D.party.review;
+    if (S.stats.casts === 0) return a.down ? 'downed' : 'poor'; // did nothing at all
     if (a.down) return 'downed';
+    if (!S.result) return 'lost';                                // nobody is happy after a wipe
     let score = 100 - a.rv.neglects * R.neglectPenalty - a.rv.lowTime * R.lowTimePenalty - a.rv.downs * R.downPenalty;
     if (score >= R.great) return 'great';
     if (score >= R.ok) return 'ok';
@@ -606,7 +611,7 @@
     const bb = $('#bossBubble');
     const bShow = B.caption && B.captionEnd > S.t;
     if (bShow) bb.textContent = B.caption;
-    bb.classList.toggle('show', !!bShow);
+    setCls(bb, 'show', !!bShow);
     $('#timer').textContent = `${fmtS(S.t)}s`;
 
     // telegraphs
@@ -629,19 +634,19 @@
       const hpText = str('ui.hpText', { hp: Math.ceil(c.hp), max: c.maxHp, pct: Math.ceil(pct(c) * 100) }) + (c.shield > 0 ? `  +${Math.ceil(c.shield)}◆` : '');
       setBar(u.hp, pct(c), hpText);
       const low = !c.down && pct(c) < D.party.lowHpAt;
-      u.hp.classList.toggle('low', low);
-      u.f.classList.toggle('low', low);
+      setCls(u.hp, 'low', low);
+      setCls(u.f, 'low', low);
       // incoming attacks drawn inside the frame they will hit
       const incoming = B.telegraphs.filter(tg => tg.targetId === id || (tg.atk.hits === 'zone' && tg.atk.zone === c.zone))
         .sort((a, b) => a.end - b.end);
       if (incoming.length && !c.down) {
         const tg = incoming[0], left = Math.max(0, tg.end - S.t);
-        u.warn.hidden = false;
+        if (u.warn.hidden) u.warn.hidden = false;
         setBar(u.warn, left / tg.atk.telegraph, `⚠ ${atkName(tg.atk.id)}  ${fmtS(left)}s` + (incoming.length > 1 ? `  +${incoming.length - 1}` : ''));
-      } else u.warn.hidden = true;
+      } else if (!u.warn.hidden) u.warn.hidden = true;
       if (u.st) setBar(u.st, c.stamina / c.maxStamina, `${Math.floor(c.stamina)} st`);
-      u.f.classList.toggle('selected', S.target === id);
-      u.f.classList.toggle('down', c.down);
+      setCls(u.f, 'selected', S.target === id);
+      setCls(u.f, 'down', c.down);
       u.tgt.textContent = S.target === id ? str('ui.target') : '';
       const sts = [];
       if (c.down) sts.push(c.isHealer ? str('status.down') : str('ui.reviveHint'));
@@ -656,13 +661,13 @@
       if (c.casting) sts.push(str('status.casting', { ability: str(`allyAbilities.${c.casting.ab.id}`) }));
       if (S.called && S.called.id === id && S.called.end > S.t) sts.push(str('status.called'));
       u.status.textContent = sts.join('  ');
-      u.f.classList.toggle('threat', incoming.length > 0 && !c.down);
+      setCls(u.f, 'threat', incoming.length > 0 && !c.down);
       u.act.textContent = c.actionEnd > S.t ? c.action : '';
       const showBubble = c.caption && c.captionEnd > S.t;
       if (showBubble) u.cap.textContent = c.caption;
-      u.cap.classList.toggle('show', !!showBubble);
-      u.cap.classList.toggle('left', c.zone === 'front');
-      u.cap.classList.toggle('right', c.zone !== 'front');
+      setCls(u.cap, 'show', !!showBubble);
+      setCls(u.cap, 'left', c.zone === 'front');
+      setCls(u.cap, 'right', c.zone !== 'front');
       const fl = [];
       if (c.hitText && c.hitText.end > S.t) fl.push(c.hitText.text);
       if (c.healText && c.healText.end > S.t) fl.push(c.healText.text);
@@ -679,14 +684,14 @@
       const full = h.cast.ab.type === 'heal' && tgc && !tgc.down && tgc.hp >= tgc.maxHp;
       if (full) label = str('ui.targetFull');
       setBar(ui.cast, frac, `${label}  ${fmtS(Math.max(0, h.cast.end - S.t))}s`);
-      ui.cast.classList.toggle('wasted', full);
+      setCls(ui.cast, 'wasted', full);
     } else if (h.breathe) {
       const on = S.t - h.breathe.start >= AB.breathe.windup;
       const frac = on ? 1 : (S.t - h.breathe.start) / AB.breathe.windup;
       setBar(ui.cast, frac, str('ui.breathing', { state: on ? str('ui.breatheActive', { mult: AB.breathe.regenMult }) : str('ui.breatheWindup') }));
     } else setBar(ui.cast, 0, str('ui.idle'));
-    if (!h.cast) ui.cast.classList.remove('wasted');
-    ui.cast.classList.toggle('breathing', !!h.breathe);
+    if (!h.cast) setCls(ui.cast, 'wasted', false);
+    setCls(ui.cast, 'breathing', !!h.breathe);
     const g = Math.max(0, h.gcdEnd - S.t);
     setBar(ui.gcd, g / D.party.healer.gcd, g > 0 ? `${str('ui.gcd')} ${fmtS(g)}` : '');
 
@@ -696,8 +701,8 @@
       u.cd.textContent = cdLeft > 0 ? `${fmtS(cdLeft)}s` : '';
       const wrongZone = ab.requiresZone && h.zone !== ab.requiresZone;
       const unusable = h.mana < ab.mana || cdLeft > 0 || (ab.gcd && g > 0) || wrongZone;
-      u.b.classList.toggle('unusable', unusable);
-      u.b.classList.toggle('active', (h.cast && !h.cast.step && h.cast.ab.id === ab.id) || (ab.id === 'breathe' && !!h.breathe) || false);
+      setCls(u.b, 'unusable', unusable);
+      setCls(u.b, 'active', (h.cast && !h.cast.step && h.cast.ab.id === ab.id) || (ab.id === 'breathe' && !!h.breathe) || false);
     }
     $('#msg').textContent = S.msg && S.msg.end > performance.now() ? S.msg.text : '';
     $('#pauseOverlay').hidden = !S.paused;
@@ -916,7 +921,7 @@
       for (const [k, v] of c.rows) dl.append(el('dt', '', k), el('dd', '', fmt(v, baseVars())));
       card.append(dl);
     }
-    $('#desktopNote').classList.toggle('warn', !!(window.matchMedia && matchMedia('(pointer: coarse)').matches));
+    setCls($('#desktopNote'), 'warn', !!(window.matchMedia && matchMedia('(pointer: coarse)').matches));
     const f = $('#setupForm'); f.replaceChildren();
     const field = (label, input) => { const l = el('label', 'field'); l.append(el('span', '', label), input); f.append(l); return input; };
     const nameI = el('input'); nameI.value = st.healerName; nameI.maxLength = 20; nameI.id = 'sName';

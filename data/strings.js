@@ -123,7 +123,7 @@ DATA.strings = {
     "none": "None",
     "bossHpLeft": "Boss HP left",
     "partySays": "What the party thinks",
-    "verdict": { "great": "Happy", "ok": "Fine", "poor": "Unhappy", "downed": "Downed" },
+    "verdict": { "great": "Happy", "ok": "Fine", "poor": "Unhappy", "lost": "Defeated", "downed": "Downed" },
     "factNeglected": "Neglected {n}×",
     "factLow": "{n}s at low HP",
     "factDowned": "Downed {n}×",
@@ -198,16 +198,16 @@ DATA.strings = {
 
   "barks": {
     "boss": {
-      "fight_start":          ["Another healer. How many do they go through?", "You bring me a mender? How sweet.", "I will drop you all, then the healer is mine!"],
-      "phase_change":         ["Enough! Now you bleed.", "You've made me angry, little healer."],
-      "attack_crushing_blow": ["Fall, {target}!", "{target}, stay down!", "Prepare to take a pounding, {target}!"],
+      "fight_start":          ["Another healer. How many do they go through?", "You bring me a mender? How sweet."],
+      "phase_change":         ["Enough! Now you bleed.", "You've made me angry, little healers."],
+      "attack_crushing_blow": ["Kneel, {target}!", "{target}, stay down!"],
       "attack_cleave":        ["Fall back or fall over!", "All of you, at once!"],
-      "attack_seeker_bolt":   ["Running won't save you, {target}.", "I can reach you, {target}."],
+      "attack_seeker_bolt":   ["Running won't save you, {target}."],
       "attack_searing_ground":["Burn where you stand!"],
-      "targets_healer":       ["I see you, little healer.", "Your turn, {healerName}." ,"Time for some fun, little healer."],
-      "ally_downed":          ["One falls.", "{who} breaks so easily.", "One by one, until you're the only one left, {healerName}."],
+      "targets_healer":       ["I see you, little healer.", "Your turn, {healerName}."],
+      "ally_downed":          ["One falls.", "{who} breaks so easily."],
       "healer_downed":        ["Without their healer, they are nothing."],
-      "victory":              ["Bring me another healer.","You're mine now, healer."],
+      "victory":              ["Bring me another healer."],
       "defeated":             ["This… isn't… over…"]
     },
     "hale": {
@@ -224,22 +224,23 @@ DATA.strings = {
       "calls_target":     ["{who, select, self {Heal me, {nickname}!} healer {Heal yourself, {nickname}!} other {Heal {target}!}}", "{who, select, self {On me. Now.} healer {Keep yourself up!} other {{target} needs you. Now.}}"],
       "phase_change":     ["It's getting angry. Stay sharp."],
       "victory":          ["Clean work."],
-      "revived":          ["…I'll shake it off. Back in line, {nickname}."],
+      "revived":          ["…I didn't need that. Back in line."],
       "review_great":     ["You kept me standing. Good.", "{gender, select, feminine {Good girl. You'll do.} masculine {Good boy. You'll do.} other {You'll do. Good.}}"],
       "review_ok":        ["Adequate. Tighten up, {nickname}.", "We won. Don't get comfortable."],
       "review_poor":      ["You left me hanging out there.", "Do that again and I find another healer."],
-      "review_downed":    ["I went down. That's on you, {nickname}."]
+      "review_downed":    ["I went down. That's on you, {nickname}."],
+      "review_lost":      ["We lost. I don't lose, {nickname}.", "Regroup. And keep up next time."]
     },
     "vex": {
-      "fight_start":      ["Watch this.", "Try to keep up, {nickname}.", "They'll never know what hit 'em."],
+      "fight_start":      ["Watch this.", "Try to keep up, {nickname}."],
       "low_hp":           ["I'm fine! …Mostly.", "Little help here?", "{nickname}! A little help? Now?"],
       "healed":           ["Knew you'd keep up.", "That's more like it.", "That's my {nickname}."],
       "shielded":         ["Ha, untouchable.", "Ooh, {nickname} likes me."],
       "neglected":        ["Hey! Down here!", "{nickname}! Eyes on me!"],
-      "out_of_stamina":   ["Come on, come on, faster!", "Ugh, gassed!", "Juice me up, {nickname}!", "Gimme some love, {nickname}!"],
+      "out_of_stamina":   ["Come on, come on, faster!", "Ugh, gassed!", "Juice me up, {nickname}!"],
       "stamina_restored": ["Now we're talking!", "Ha! Thanks, {nickname}."],
-      "ally_downed":      ["Better them than me, right?"],
-      "targeted":         ["Bring it!", "Watch me dodge this, {nickname}.", "Can't hit what you can't catch!"],
+      "ally_downed":      ["That's not me, right?"],
+      "targeted":         ["Bring it!", "Watch me dodge this, {nickname}."],
       "greedy":           ["Did you see that? I'm not moving for anything!", "You see that, {nickname}? Tell me you saw that."],
       "restless":         ["Forget waiting, I'm going in!", "I'm bored, {nickname}. Going in!"],
       "victory":          ["Told you I'm the best.", "Told you I'm the best. You helped, {nickname}. A little."],
@@ -247,7 +248,8 @@ DATA.strings = {
       "review_great":     ["Not bad. I made you look good.", "See? We're a great team. Mostly me.", "Not bad, {nickname}. I made you look good."],
       "review_ok":        ["Could've been flashier.", "Fine. Keep up next time, {nickname}."],
       "review_poor":      ["Were you even watching me?", "I was carrying this fight and you just… watched.", "Were you even watching me, {nickname}?"],
-      "review_downed":    ["Ugh.", "That wasn't my fault, {nickname}. Obviously."]
+      "review_downed":    ["That wasn't my fault. Obviously.", "That wasn't my fault, {nickname}. Obviously."],
+      "review_lost":      ["Ugh. I was carrying that and we still lost.", "Keep me up longer next time, {nickname}."]
     },
     "pell": {
       "fight_start":      ["Stay close, okay, {nickname}?"],
@@ -259,7 +261,7 @@ DATA.strings = {
       "stamina_restored": ["I can keep going."],
       "ally_downed":      ["No, no, no…"],
       "targeted":         ["Something's coming at me!"],
-      "blink":            ["Blinking out!","Now you see me… now you don't!"],
+      "blink":            ["Blinking out!"],
       "follows":          ["Wait for me!", "I'm coming with you."],
       "shaken":           ["Sorry, sorry, I messed up…"],
       "victory":          ["We made it. Together."],
@@ -267,7 +269,8 @@ DATA.strings = {
       "review_great":     ["I felt safe the whole time. Thank you, {nickname}.", "Can we stick together next time too?"],
       "review_ok":        ["We did okay… right?", "I was a little scared, but we made it."],
       "review_poor":      ["I thought you'd forgotten me.", "…It's fine. I know I'm not the priority."],
-      "review_downed":    ["I'm sorry I got in the way…"]
+      "review_downed":    ["I'm sorry I got in the way…"],
+      "review_lost":      ["We… didn't make it. Are you okay, {nickname}?", "It's not your fault. …Is it?"]
     }
   }
 };
