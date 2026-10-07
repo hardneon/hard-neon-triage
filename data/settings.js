@@ -2,7 +2,7 @@
 // gender = grammatical gender for barks: "feminine" | "masculine" | "neutral" (neutral uses the "other" branch).
 window.DATA = window.DATA || {};
 DATA.settings = {
-  "version": "v0.10",
+  "version": "v0.12",
 
   "healerName": "Healer",
   "gender": "neutral",

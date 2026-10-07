@@ -156,6 +156,7 @@
     }
     let m = 1;
     if (c.restless) m *= c.rules.restless.takenMult;
+    if (c.guardEnd > S.t) m *= c.guardMult;
     if (c.greedy && opts.attackId === c.rules.greedyAfterCrit?.attack) { m *= c.rules.greedyAfterCrit.damageMult; c.greedy = false; }
     amt *= m;
     if (c.shield > 0) { const ab = Math.min(c.shield, amt); c.shield -= ab; amt -= ab; }
@@ -168,6 +169,7 @@
       if (c.rv) c.rv.downs++;
       bossBark(c.isHealer ? 'healer_downed' : 'ally_downed', { who: c.name }, true);
       if (c.isHealer) c.cast = null;
+      c.casting = null;
       for (const o of allies()) if (o !== c && !o.down) { bark(o.id, 'ally_downed', { who: c.name }, 2); break; }
       return;
     }
@@ -214,13 +216,19 @@
     if ((h.cds[id] || 0) > S.t) return notify(str('ui.onCooldown', { ability: abName(id) }));
     if (ab.type === 'step') return doStep();
     if (h.breathe) { h.breathe = null; if (ab.type === 'breathe') return; } // pressing Breathe again stops it
-    if (h.cast && h.cast.ab.id === id && h.cast.targetId === (ab.targeted ? S.target : null)) return; // already casting this
+    if (h.cast && h.cast.ab.id === id && (ab.downedOnly || h.cast.targetId === (ab.targeted ? S.target : null))) return; // already casting this
     if (ab.gcd && S.t < h.gcdEnd) return notify(str('ui.onGcd'));
     if (h.mana < ab.mana) return notify(str('ui.noMana'));
     if (ab.requiresZone && h.zone !== ab.requiresZone) return notify(str('ui.needsZone', { ability: abName(id), zone: zoneName(ab.requiresZone) }));
     let targetId = null;
     if (ab.targeted) {
       targetId = S.target;
+      if (ab.downedOnly && !S.chars[targetId]?.down) {
+        // auto-target: a downed ally in your line first, then any downed ally
+        const downed = allies().filter(c => c.down);
+        const pick = downed.find(c => c.zone === S.healer.zone) || downed[0];
+        if (pick) targetId = pick.id;
+      }
       const tg = S.chars[targetId];
       if (!tg) return notify(str('ui.noTarget'));
       if (ab.allyOnly && tg.isHealer) return notify(str('ui.allyOnly', { ability: abName(id) }));
@@ -322,7 +330,9 @@
       const rs = a.rules.restless;
       if (rs && a.exhausted && !a.restless && S.t - a.exhaustedSince >= rs.after) { a.restless = true; bark(a.id, 'restless', {}, 1); }
       // abilities (first ready one, in listed order)
-      if (!a.exhausted) {
+      if (a.casting) {
+        if (S.t >= a.casting.end) { const ab = a.casting.ab; a.casting = null; finishAllyAbility(a, ab); }
+      } else if (!a.exhausted) {
         for (const ab of a.abilities) {
           if (a.stamina >= ab.cost && (a.abCds[ab.id] || 0) <= S.t) { useAllyAbility(a, ab); break; }
         }
@@ -357,6 +367,18 @@
   function useAllyAbility(a, ab) {
     a.stamina -= ab.cost;
     a.abCds[ab.id] = S.t + ab.cd;
+    if (ab.cast) {
+      // cast-time ability: slowed by being Shaken
+      const slow = a.shakenEnd > S.t ? a.rules.shaken.dpsMult : 1;
+      a.casting = { ab, end: S.t + ab.cast / slow };
+      return;
+    }
+    finishAllyAbility(a, ab);
+  }
+
+  function finishAllyAbility(a, ab) {
+    if (ab.effect === 'taunt') S.taunt = { id: a.id, end: S.t + ab.duration, mult: ab.weightMult };
+    if (ab.effect === 'guard') { a.guardEnd = S.t + ab.duration; a.guardMult = ab.takenMult; }
     let dmg = ab.damage * allyDamageMult(a);
     let crit = false;
     if (ab.critChance && Math.random() < ab.critChance) { dmg *= ab.critMult; crit = true; }
@@ -381,6 +403,7 @@
       if (mods.recentlyHealed && S.t - c.lastHealedAt <= B.targeting.recentlyHealedWindow) x += mods.recentlyHealed;
       if (mods.lowestHp && c === lowest) x += mods.lowestHp;
       if (mods.healer && c.isHealer) x += mods.healer;
+      if (S.taunt && S.taunt.end > S.t && S.taunt.id === c.id) x *= S.taunt.mult;
       return x;
     });
     const total = w.reduce((s, x) => s + x, 0);
@@ -531,6 +554,9 @@
       const f = el('button', 'frame'); f.type = 'button'; f.dataset.id = id;
       const head = el('div', 'fhead');
       const nm = el('span', 'fname', c.name);
+      const ci = D.icons?.[c.icon];
+      if (ci) { const s = el('span', 'ficon'); s.title = str(`ui.classes.${c.role}`);
+        s.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="${ci.color}">${ci.svg}</svg>`; head.append(s); }
       const key = el('span', 'fkey', Object.keys(D.settings.targetKeys).find(k => D.settings.targetKeys[k] === id) || '');
       const tgt = el('span', 'ftarget', '');
       head.append(nm, key, tgt);
@@ -553,10 +579,17 @@
       const b = el('button', 'ab'); b.type = 'button';
       b.title = str(`abilities.${ab.id}.desc`);
       const k = el('span', 'abkey', ab.keyLabel);
+      const ic = el('span', 'abicon');
+      const icon = D.icons?.[ab.icon];
+      if (icon) { ic.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="${icon.color}">${icon.svg}</svg>`; }
       const n = el('span', 'abname', abName(ab.id));
-      const m = el('span', 'abmana', ab.mana ? `${ab.mana}` : '—');
+      const castLbl = ab.cast > 0 ? str('ui.castTime', { s: ab.cast }) : str('ui.instant');
+      const tagVars = { amount: ab.amount, pct: Math.round((ab.amount || 0) * 100), mult: ab.regenMult, cast: castLbl };
+      const tg = el('span', 'abtag', str(`abilities.${ab.id}.tag`, tagVars));
+      const m = el('span', 'abmana', ab.mana ? str('ui.manaCost', { n: ab.mana }) : str('ui.free'));
       const cd = el('span', 'abcd', '');
-      b.append(k, n, m, cd);
+      b.setAttribute('aria-label', `${abName(ab.id)}, ${tg.textContent}, ${m.textContent}, key ${ab.keyLabel}`);
+      b.append(k, ic, n, tg, m, cd);
       b.addEventListener('click', () => tryCast(ab.id));
       abBox.append(b); ui.abs[ab.id] = { b, cd };
     }
@@ -618,6 +651,9 @@
       if (c.restless) sts.push(str('status.restless'));
       if (c.shakenEnd > S.t) sts.push(str('status.shaken'));
       if (c.greedy) sts.push(str('status.greedy'));
+      if (S.taunt && S.taunt.id === id && S.taunt.end > S.t) sts.push(str('status.taunt'));
+      if (c.guardEnd > S.t) sts.push(str('status.guard'));
+      if (c.casting) sts.push(str('status.casting', { ability: str(`allyAbilities.${c.casting.ab.id}`) }));
       if (S.called && S.called.id === id && S.called.end > S.t) sts.push(str('status.called'));
       u.status.textContent = sts.join('  ');
       u.f.classList.toggle('threat', incoming.length > 0 && !c.down);
@@ -873,6 +909,13 @@
     how.append(el('summary', '', str('ui.howToTitle')));
     const ul = el('ul'); for (const line of D.strings.ui.howTo) ul.append(el('li', '', fmt(line, baseVars()))); how.append(ul);
     $('#desktopNote').textContent = str('ui.desktopOnly');
+    const c = D.strings.ui.contract, card = $('#contract');
+    if (c && card) {
+      card.replaceChildren(el('div', 'ctitle', fmt(c.title, baseVars())));
+      const dl = el('dl');
+      for (const [k, v] of c.rows) dl.append(el('dt', '', k), el('dd', '', fmt(v, baseVars())));
+      card.append(dl);
+    }
     $('#desktopNote').classList.toggle('warn', !!(window.matchMedia && matchMedia('(pointer: coarse)').matches));
     const f = $('#setupForm'); f.replaceChildren();
     const field = (label, input) => { const l = el('label', 'field'); l.append(el('span', '', label), input); f.append(l); return input; };

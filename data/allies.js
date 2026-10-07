@@ -20,12 +20,12 @@ DATA.party = {
 
   "allies": [
     {
-      "id": "hale", "name": "Hale", "pronouns": "he", "role": "tank", "zone": "front",
+      "id": "hale", "name": "Hale", "pronouns": "he", "role": "tank", "icon": "role_tank", "zone": "front",
       "hp": 1200, "stamina": 100, "dps": 15,
       "want": "dominance", "fear": "abandonment",
       "abilities": [
-        { "id": "taunt",       "cost": 20, "cd": 10.7, "damage": 0 },
-        { "id": "shield_slam", "cost": 30, "cd": 8,    "damage": 60 }
+        { "id": "taunt",       "cost": 20, "cd": 10.7, "damage": 0,  "effect": "taunt", "duration": 5.3, "weightMult": 3 },
+        { "id": "shield_slam", "cost": 30, "cd": 8,    "damage": 60, "effect": "guard", "duration": 4,   "takenMult": 0.7 }
       ],
       "rules": {
         "callTarget":     { "interval": 26.7, "selfChance": 0.25, "duration": 6.7 },
@@ -34,12 +34,12 @@ DATA.party = {
       }
     },
     {
-      "id": "vex", "name": "Vex", "pronouns": "she", "role": "melee", "zone": "front",
-      "hp": 700, "stamina": 100, "dps": 33.75,
+      "id": "vex", "name": "Vex", "pronouns": "she", "role": "melee", "icon": "role_melee", "zone": "front",
+      "hp": 650, "stamina": 100, "dps": 33.75,
       "want": "status", "fear": "stagnation",
       "abilities": [
-        { "id": "flurry", "cost": 35, "cd": 5.3, "damage": 150, "critChance": 0.25, "critMult": 2 },
-        { "id": "lunge",  "cost": 20, "cd": 6.7, "damage": 60 }
+        { "id": "flurry", "cost": 35, "cd": 5.3, "damage": 180, "critChance": 0.3, "critMult": 2.5 },
+        { "id": "lunge",  "cost": 20, "cd": 6.7, "damage": 70 }
       ],
       "rules": {
         "greedyAfterCrit": { "attack": "cleave", "damageMult": 1.5 },
@@ -47,11 +47,11 @@ DATA.party = {
       }
     },
     {
-      "id": "pell", "name": "Pell", "pronouns": "he", "role": "ranged", "zone": "back",
+      "id": "pell", "name": "Pell", "pronouns": "he", "role": "ranged", "icon": "role_ranged", "zone": "back",
       "hp": 700, "stamina": 100, "dps": 26.25,
       "want": "stability", "fear": "humiliation",
       "abilities": [
-        { "id": "firebolt", "cost": 25, "cd": 5.3, "damage": 100 }
+        { "id": "firebolt", "cost": 25, "cd": 5.3, "damage": 110, "cast": 1.3 }
       ],
       "rules": {
         "followHealer": { "delay": 2 },

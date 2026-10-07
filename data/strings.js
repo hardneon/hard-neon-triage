@@ -45,6 +45,20 @@ DATA.strings = {
     "feedbackEmpty": "Pick a rating or write a comment first.",
     "support": "Follow & support on Ko-fi",
     "supportLead": "Enjoying Triage? More Hard Neon is on the way.",
+    "castTime": "{s}s",
+    "instant": "instant",
+    "manaCost": "{n} mana",
+    "free": "free",
+    "contract": {
+      "title": "Contract #4471: Triage support",
+      "rows": [
+        ["Crew", "Hale (lead), Vex, Pell"],
+        ["Target", "The Warden"],
+        ["Terms", "Keep them alive."],
+        ["Payment", "On survival."]
+      ]
+    },
+    "classes": { "tank": "Tank: pulls hits onto himself", "melee": "Striker: big damage, fragile", "ranged": "Caster: steady damage from the back" },
     "copyResults": "Copy results",
     "copied": "Copied!",
     "copyFailed": "Couldn't copy",
@@ -58,6 +72,7 @@ DATA.strings = {
       "Mend is instant but costly. Restore is efficient. Renewal is big but slow. Pressing another spell cancels your current cast.",
       "Tab switches between back and front line. Radiance (big group heal) and reviving front-liners only work up front, where you can get hit.",
       "Out of mana? Breathe (7) to recover faster. Any action or hit stops it.",
+      "Hale (shield) taunts to pull hits onto himself. Vex (dagger) hits hardest but is fragile. Pell (star) casts from the back line.",
       "Allies run out of stamina. Invigorate (6) gets them back in the fight.",
       "Your party will tell you how you did afterwards."
     ],
@@ -121,15 +136,15 @@ DATA.strings = {
   "zone": { "front": "front line", "back": "back line" },
 
   "abilities": {
-    "light_heal":      { "name": "Mend",       "desc": "Instant small heal. Inefficient." },
-    "med_heal":        { "name": "Restore",    "desc": "1.5s heal. Most efficient." },
-    "heavy_heal":      { "name": "Renewal",    "desc": "3s big heal. Pre-cast for spikes; cancel if not needed." },
-    "shield":          { "name": "Ward",       "desc": "Absorbs damage for a while. Can target yourself." },
-    "aoe_heal":        { "name": "Radiance",   "desc": "Big heal to everyone in the front line. Must stand in front. Long cooldown." },
-    "stamina_restore": { "name": "Invigorate", "desc": "Restore an ally's stamina." },
-    "breathe":         { "name": "Breathe",    "desc": "After a short wind-up, triple mana regen. Any action or hit breaks it." },
-    "revive":          { "name": "Revive",     "desc": "Bring a downed ally back at 50% HP. Must be in their line. Long cooldown. Interrupted if you're hit." },
-    "step":            { "name": "Step",       "desc": "Instantly switch lines. Cancels casting. Short cooldown." }
+    "light_heal":      { "name": "Mend",       "tag": "+{amount} · {cast}", "desc": "Instant small heal. Inefficient." },
+    "med_heal":        { "name": "Restore",    "tag": "+{amount} · {cast}", "desc": "Medium heal. Most mana-efficient." },
+    "heavy_heal":      { "name": "Renewal",    "tag": "+{amount} · {cast}", "desc": "Big, slow heal. Start it before a big hit lands." },
+    "shield":          { "name": "Ward",       "tag": "{amount} shield · {cast}", "desc": "Absorbs damage for a while. Can target yourself." },
+    "aoe_heal":        { "name": "Radiance",   "tag": "+{amount} front · {cast}", "desc": "Big heal to everyone in the front line. Must stand in front. Long cooldown." },
+    "stamina_restore": { "name": "Invigorate", "tag": "+{amount} stamina", "desc": "Restore an ally's stamina." },
+    "breathe":         { "name": "Breathe",    "tag": "×{mult} mana", "desc": "After a short wind-up, triple mana regen. Any action or hit breaks it." },
+    "revive":          { "name": "Revive",     "tag": "{pct}% HP · {cast}", "desc": "Bring a downed ally back at 50% HP. Must be in their line. Long cooldown. Interrupted if you're hit." },
+    "step":            { "name": "Step",       "tag": "switch line", "desc": "Instantly switch lines. Cancels casting. Short cooldown." }
   },
 
   "allyAbilities": {
@@ -157,6 +172,9 @@ DATA.strings = {
     "restless": "» Restless",
     "shaken": "~ Shaken",
     "greedy": "★ Showboating",
+    "taunt": "⛨ Taunting",
+    "guard": "▣ Guarded",
+    "casting": "… {ability}",
     "called": "☞ Called",
     "targeted": "⚠ {attack}",
     "crit": "Crit!"
