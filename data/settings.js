@@ -2,13 +2,16 @@
 // gender = grammatical gender for barks: "feminine" | "masculine" | "neutral" (neutral uses the "other" branch).
 window.DATA = window.DATA || {};
 DATA.settings = {
-  "version": "v0.14",
+  "version": "v0.18",
 
   "healerName": "Healer",
   "gender": "neutral",
   "pronouns": "they",
   "nicknames": { "hale": "", "vex": "", "pell": "" },
   "nickPack": "none",
+
+  // Mature content layer (data/mature.js). Off by default; players opt in on the setup screen.
+  "mature": false,
 
   // Game speed: scales time only. 100 = intended pace.
   "speed": 100, "speedMin": 50, "speedMax": 150, "speedStep": 5,

@@ -56,6 +56,17 @@
     const p = st.pronounSets[st.pronouns] || st.pronounSets.they;
     return { healerName: st.healerName || 'Healer', gender: st.gender, subj: p.subj, obj: p.obj, poss: p.poss };
   }
+  // A trigger's bark pool: base lines, plus mature lines when the 18+ mode is on.
+  function barkPool(id, trigger) {
+    const base = D.strings.barks[id]?.[trigger] || [];
+    const extra = D.settings.mature ? (D.mature?.barks?.[id]?.[trigger] || []) : [];
+    return base.concat(extra);
+  }
+  function nicknamePacks() {
+    const base = D.nicknamePacks || [];
+    if (!D.settings.mature) return base;
+    return base.concat((D.mature?.nicknamePacks || []).map(p => ({ ...p, flag: 'mature' })));
+  }
   function str(path, vars = {}) {
     const v = path.split('.').reduce((o, k) => (o == null ? o : o[k]), D.strings);
     if (v == null) return `[${path}]`;
@@ -94,7 +105,7 @@
     }
     const B = D.boss;
     TEL.runIndex++;
-    S.run = { version: st.version, difficulty: st.difficulty, speed: st.speed, runIndex: TEL.runIndex, runId: `${TEL.sessionId}-${TEL.runIndex}`, startedAt: new Date().toISOString() };
+    S.run = { version: st.version, difficulty: st.difficulty, speed: st.speed, mature: !!st.mature, runIndex: TEL.runIndex, runId: `${TEL.sessionId}-${TEL.runIndex}`, startedAt: new Date().toISOString() };
     S.diff = st.difficulties[st.difficulty] || st.difficulties.normal;
     const bossHp = Math.round(B.hp * S.diff.bossHp);
     S.boss = { hp: bossHp, maxHp: bossHp, phase: 1, timers: {}, telegraphs: [], areas: [], caption: null, captionEnd: 0, barkCd: 0, lastBark: {} };
@@ -119,7 +130,7 @@
   function bark(id, trigger, extra = {}, priority = 0, force = false) {
     const a = S.chars[id];
     if (!a || a.isHealer || (a.down && !force)) return;
-    const list = D.strings.barks[id]?.[trigger];
+    const list = barkPool(id, trigger);
     if (!list || !list.length) return;
     if (!force && S.t < a.barkCd) return;
     if (!force && priority < 1 && S.t < S.globalBarkEnd) return;
@@ -135,7 +146,7 @@
   // Boss shouts: own cooldown, never blocked by the party's global gap.
   function bossBark(trigger, extra = {}, force = false) {
     const B = S.boss, cfg = D.boss.barks || {};
-    const list = D.strings.barks.boss?.[trigger];
+    const list = barkPool('boss', trigger);
     if (!list || !list.length) return;
     if (!force && S.t < B.barkCd) return;
     if (!force && Math.random() > (cfg.chance?.[trigger] ?? 1)) return;
@@ -501,7 +512,7 @@
     return 'poor';
   }
   function sayLine(id, trigger) {
-    const list = D.strings.barks[id]?.[trigger];
+    const list = barkPool(id, trigger);
     if (!list || !list.length) return '';
     const nick = D.settings.nicknames[id] || D.settings.healerName || 'Healer';
     return cap(fmt(list[Math.floor(Math.random() * list.length)], { ...baseVars(), nickname: nick }));
@@ -783,7 +794,7 @@
 
   function settingsLine() {
     const st = S.run;
-    return str('ui.runInfo', { version: st.version, difficulty: str(`ui.difficultyOptions.${st.difficulty}`), speed: st.speed });
+    return str('ui.runInfo', { version: st.version, difficulty: str(`ui.difficultyOptions.${st.difficulty}`), speed: st.speed }) + (st.mature ? ` · ${str('ui.matureOn')}` : '');
   }
   function runVars() {
     const st = S.run;
@@ -828,7 +839,7 @@
       manaSpent: s.manaSpent, casts: s.casts, cancels: s.cancels, steps: s.steps,
       reviveAttempts: s.reviveAttempts, reviveInterrupts: s.reviveInterrupts, revives: s.revives,
       healerDown: S.healer.down,
-      gender: st.gender, pronouns: st.pronouns, namesShared: TEL.shareNames,
+      gender: st.gender, pronouns: st.pronouns, namesShared: TEL.shareNames, mature: S.run.mature,
       healerName: TEL.shareNames ? st.healerName : ''
     };
     for (const a of D.party.allies) {
@@ -929,13 +940,27 @@
     const sel = (opts, val, id) => { const s = el('select'); s.id = id; for (const [k, v] of Object.entries(opts)) { const o = el('option', '', v); o.value = k; s.append(o); } s.value = val; return s; };
     field(str('ui.gender'), sel(U.genderOptions, st.gender, 'sGender'));
     field(str('ui.pronouns'), sel(U.pronounOptions, st.pronouns, 'sPronouns'));
+    // 18+ mature mode: one deliberate opt-in (age attestation + clear description)
+    const mt = el('div', 'telnote mature');
+    mt.append(el('div', 'mtitle', str('ui.matureLabel')));
+    const ml = el('label', 'check'); const mcb = el('input'); mcb.type = 'checkbox'; mcb.id = 'sMature'; mcb.checked = !!st.mature;
+    ml.append(mcb, el('span', '', str('ui.matureCheck'))); mt.append(ml, el('p', '', str('ui.matureHelp')));
+    f.append(mt);
     const fs = el('fieldset'); fs.append(el('legend', '', str('ui.nicknames')));
     // Nickname packs fill the boxes; editing any box switches the picker to "Custom".
-    const packs = D.nicknamePacks || [];
-    const packOpts = {};
-    for (const p of packs) packOpts[p.id] = str(`ui.packs.${p.id}`) + (p.flag ? ` (${str(`ui.packFlags.${p.flag}`)})` : '');
-    packOpts.custom = str('ui.packs.custom');
-    const packSel = sel(packOpts, st.nickPack || 'none', 'sPack');
+    let packs = nicknamePacks();
+    const packSel = el('select'); packSel.id = 'sPack';
+    const fillPackOptions = () => {
+      const cur = packSel.value || st.nickPack || 'none';
+      packSel.replaceChildren();
+      for (const p of packs) {
+        const o = el('option', '', str(`ui.packs.${p.id}`) + (p.flag ? ` (${str(`ui.packFlags.${p.flag}`)})` : ''));
+        o.value = p.id; packSel.append(o);
+      }
+      const c = el('option', '', str('ui.packs.custom')); c.value = 'custom'; packSel.append(c);
+      packSel.value = [...packSel.options].some(o => o.value === cur) ? cur : 'none';
+    };
+    fillPackOptions();
     const pl = el('label', 'field'); pl.append(el('span', '', str('ui.nickPack')), packSel); fs.append(pl);
     const inputs = {};
     for (const a of D.party.allies) {
@@ -954,6 +979,13 @@
       for (const a of D.party.allies) inputs[a.id].value = fmt(p.nicknames[a.id] || '', vars);
     };
     packSel.addEventListener('change', fillPack);
+    mcb.addEventListener('change', () => {
+      D.settings.mature = mcb.checked;
+      const before = packSel.value;
+      packs = nicknamePacks(); fillPackOptions();
+      // a mature pack was picked and mature got switched off: fall back to None and clear its names
+      if (packSel.value !== before) fillPack();
+    });
     f.append(fs);
     setTimeout(() => $('#sGender')?.addEventListener('change', () => { if (packSel.value !== 'custom') fillPack(); }));
     const diff = sel(U.difficultyOptions, st.difficulty, 'sDiff');
@@ -985,6 +1017,7 @@
     st.pronouns = $('#sPronouns').value;
     for (const a of D.party.allies) st.nicknames[a.id] = $(`#sNick_${a.id}`).value.trim();
     if ($('#sPack')) st.nickPack = $('#sPack').value;
+    if ($('#sMature')) st.mature = $('#sMature').checked;
     st.speed = Number($('#sSpeed').value);
     st.difficulty = $('#sDiff').value;
     if ($('#sShareNames')) TEL.shareNames = $('#sShareNames').checked;

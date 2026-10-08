@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nickname Preview</title>
+  <script src="data/strings.js"></script>
+  <script src="data/settings.js"></script>
+  <script src="data/abilities.js"></script>
+  <script src="data/allies.js"></script>
+  <script src="data/boss.js"></script>
+  <script src="data/nicknames.js"></script>
+  <script src="data/mature.js"></script>
+  <script src="game.js"></script>
+  <style>
+    :root { --bg:#15161a; --panel:#1f2127; --line:#34373f; --text:#e8e6e1; --muted:#a3a29c; }
+    body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, "Segoe UI", sans-serif; }
+    h1 { font-size: 1.2rem; margin: 0 0 4px; }
+    p { color: var(--muted); margin: 0 0 12px; }
+    .controls { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+    label { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+    select, input { font: inherit; color: inherit; background: #2b2d34; border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; }
+    .wrap { overflow-x: auto; }
+    table { border-collapse: collapse; min-width: 900px; width: 100%; }
+    th, td { border: 1px solid var(--line); padding: 6px 8px; vertical-align: top; text-align: left; }
+    th { background: #26282f; position: sticky; top: 0; }
+    td.meta { color: var(--muted); white-space: nowrap; font-size: .8rem; }
+    tr.ally td { background: #26282f; font-weight: 700; }
+    td.src { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: .75rem; max-width: 260px; }
+  </style>
+</head>
+<body>
+  <h1>Nickname preview</h1>
+  <p>Every bark that uses a nickname, rendered with every pack (★ = mature-mode line; last three packs are 18+). Read across a row to check each name sounds right in that line. Edit packs in <code>data/nicknames.js</code> and refresh.</p>
+  <div class="controls">
+    <label>Healer name <input id="pName" value="Ash"></label>
+    <label>Grammatical gender
+      <select id="pGender"><option value="feminine">Feminine</option><option value="masculine">Masculine</option><option value="neutral">Neutral</option></select>
+    </label>
+    <label>Pronouns
+      <select id="pPron"><option value="she">she/her</option><option value="he">he/him</option><option value="they">they/them</option></select>
+    </label>
+  </div>
+  <div class="wrap"><table id="t"></table></div>
+  <script>
+    (() => {
+      const D = window.DATA, fmt = window.HEALER.fmt;
+      const cap = s => (s ? s[0].toUpperCase() + s.slice(1) : s);
+      const packs = D.nicknamePacks.concat(D.mature ? D.mature.nicknamePacks : []);
+      function render() {
+        const name = document.getElementById('pName').value || 'Healer';
+        const gender = document.getElementById('pGender').value;
+        const pr = D.settings.pronounSets[document.getElementById('pPron').value];
+        const base = { healerName: name, gender, subj: pr.subj, obj: pr.obj, poss: pr.poss,
+          target: 'Vex', who: 'other', attack: 'Cleave' };
+        const t = document.getElementById('t');
+        let html = '<tr><th>Trigger</th><th>Template</th>' + packs.map(p => `<th>${D.strings.ui.packs[p.id]}</th>`).join('') + '</tr>';
+        for (const a of D.party.allies) {
+          html += `<tr class="ally"><td colspan="${packs.length + 2}">${a.name}</td></tr>`;
+          const barks = D.strings.barks[a.id], mb = (D.mature && D.mature.barks[a.id]) || {};
+          for (const trig of new Set([...Object.keys(barks), ...Object.keys(mb)])) {
+            for (const line of [...(barks[trig] || []), ...(mb[trig] || []).map(l => '\u2605 ' + l)]) {
+              if (!line.includes('nickname')) continue;
+              const cells = packs.map(p => {
+                const nick = fmt(p.nicknames[a.id] || '', base) || name;
+                const extra = trig === 'ally_downed' ? { who: 'Pell' } : trig === 'calls_target' ? { who: 'self' } : {};
+                return `<td>${cap(fmt(line, { ...base, ...extra, nickname: nick }))}</td>`;
+              }).join('');
+              html += `<tr><td class="meta">${trig}</td><td class="src">${line.replace(/</g, '&lt;')}</td>${cells}</tr>`;
+            }
+          }
+        }
+        t.innerHTML = html;
+      }
+      ['pName', 'pGender', 'pPron'].forEach(id => document.getElementById(id).addEventListener('input', render));
+      render();
+    })();
+  </script>
+</body>
+</html>

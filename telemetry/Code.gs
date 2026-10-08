@@ -142,6 +142,7 @@ function refreshSummary_() {
   add('Grammatical gender', ['Gender', 'Fights'], count_(runs, 'gender'));
   add('Pronouns', ['Pronouns', 'Fights'], count_(runs, 'pronouns'));
   add('Shared names?', ['namesShared', 'Fights'], count_(runs, 'namesShared'));
+  add('Mature mode', ['Mature on?', 'Fights'], count_(runs, 'mature'));
   add('Nickname pack chosen', ['Pack', 'Fights'], count_(runs, 'nickPack'));
   add('Want more mature options?', ['Answer', 'Responses'], count_(fb.filter(f => f.wantMature !== '' && f.wantMature != null), 'wantMature'));
 
