@@ -19,7 +19,7 @@ DATA.mature = {
   "barks": {
     "hale": {
       "healed":           ["{gender, select, feminine {Good girl.} masculine {Good boy.} other {Good pet.}}", "That's it. Just like that."],
-      "shielded":         ["Keeping me safe. I noticed."],
+      "shielded":         ["Keeping me safe, {nickname}. I noticed."],
       "low_hp":           ["Eyes on me, {nickname}. You know what I need."],
       "neglected":        ["I'm waiting, {nickname}. Don't make me wait."],
       "revived":          ["You came for me. Good. Remember how that felt."],
@@ -43,8 +43,8 @@ DATA.mature = {
       "healed":           ["Ugh, finally. I was getting bored.", "That's it? I'm not saying thank you."],
       "shielded":         ["I didn't ask for a bubble. …Fine. I'm keeping it."],
       "low_hp":           ["Oops. Guess you'll have to come fix me, {nickname}."],
-      "neglected":        ["Ignoring me? Bold. I'll stand in the fire until you look.", "Hey. Hey. {nickname}. Hey."],
-      "revived":          ["Took you long enough. Now pay attention to me."],
+      "neglected":        ["Pay attention to me!", "Hey. Hey. {nickname}. Hey."],
+      "revived":          ["Took you long enough. Finally!"],
       "review_great":     ["Fine. You were good. Don't let it go to your head, {nickname}."],
       "review_poor":      ["That's it? I expected you to put me in my place."],
       "review_lost":      ["Your fault. Go on, punish me for it, {nickname}."]
