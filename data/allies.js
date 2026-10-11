@@ -3,7 +3,13 @@
 // v0.5: all times rescaled so 100% game speed = the old 75% feel.
 window.DATA = window.DATA || {};
 DATA.party = {
-  "healer": { "hp": 600, "mana": 1000, "manaRegen": 15, "gcd": 1.0, "startZone": "back" },
+  "healer": { "hp": 600, "mana": 1000, "manaRegen": 15, "gcd": 1.0, "startZone": "back",
+              "role": "healer", "icon": "cross1", "portrait": "art/portraits/PT-Healer.png", "portraitFacing": "right" },
+
+  // Portraits (v0.20): square images shown beside each frame. "portraitFacing" = the way the drawn face looks.
+  // The game mirrors a portrait so it always faces into the screen (front column faces right, back column faces left).
+  // Missing or broken images fall back to the role icon. Rim colour comes from the role, not the character.
+  "roleColors": { "tank": "#2F5BFF", "melee": "#D23CFF", "ranged": "#7FE3FF", "healer": "#E8F4FF" },
 
   "staminaRegen": 2.25,       // per second
   "exhaustBelow": 15,         // stamina below this = Exhausted (no abilities, reduced damage)
@@ -21,6 +27,7 @@ DATA.party = {
   "allies": [
     {
       "id": "hale", "name": "Hale", "pronouns": "he", "role": "tank", "icon": "role_tank", "zone": "front",
+      "portrait": "art/portraits/PT-Hale.png", "portraitFacing": "right",
       "hp": 1200, "stamina": 100, "dps": 15,
       "want": "dominance", "fear": "abandonment",
       "abilities": [
@@ -35,6 +42,7 @@ DATA.party = {
     },
     {
       "id": "vex", "name": "Vex", "pronouns": "she", "role": "melee", "icon": "role_melee", "zone": "front",
+      "portrait": "art/portraits/PT-Vex.png", "portraitFacing": "right",
       "hp": 750, "stamina": 100, "dps": 33.75,
       "want": "status", "fear": "stagnation",
       "abilities": [
@@ -48,6 +56,7 @@ DATA.party = {
     },
     {
       "id": "pell", "name": "Pell", "pronouns": "he", "role": "ranged", "icon": "role_ranged", "zone": "back",
+      "portrait": "art/portraits/PT-Pell.png", "portraitFacing": "right",
       "hp": 700, "stamina": 100, "dps": 26.25,
       "want": "stability", "fear": "humiliation",
       "abilities": [

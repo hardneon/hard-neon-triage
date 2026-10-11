@@ -25,7 +25,7 @@
 }
 * { box-sizing: border-box; }
 html { background: var(--bg); }
-body { margin: 0 auto; padding: 24px 16px 40px; color: var(--text); max-width: 620px;
+body { margin: 0 auto; padding: 24px 16px 40px; color: var(--text); max-width: 880px;
   font: 16px/1.4 var(--body);
   background:
     radial-gradient(ellipse 60% 40% at 50% -10%, rgba(41,133,251,.10), transparent 70%),
@@ -111,6 +111,30 @@ h1#title { margin: 0 0 16px; display: flex; align-items: baseline; gap: 10px; fl
 .frames { display: grid; gap: 8px; min-height: 100px; align-content: start; }
 
 .frame { text-align: left; padding: 7px 10px 8px; cursor: pointer; width: 100%; --fill-c: #11141E; }
+
+/* ---------- portraits (v0.20): bubble → portrait → frame, mirrored in the back column ---------- */
+:root { --pt: 104px; }
+#setup, body:has(#setup:not([hidden])) #title { max-width: 620px; margin-left: auto; margin-right: auto; }
+.slot { position: relative; display: grid; grid-template-columns: var(--pt) minmax(0, 1fr); gap: 8px; align-items: center; }
+.slot.back { grid-template-columns: minmax(0, 1fr) var(--pt); }
+.slot.back .portrait { order: 2; }
+.slot .frame { align-self: stretch; }
+.portrait { position: relative; width: var(--pt); height: var(--pt); overflow: hidden; cursor: pointer;
+  background: #0B1020; border: 2px solid var(--role-c);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--role-c) 45%, transparent);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition: box-shadow .15s, filter .2s; }
+.portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.portrait.flip img { transform: scaleX(-1); }
+.portrait .picon { position: absolute; inset: 0; display: grid; place-items: center; }
+.portrait .picon svg { width: 52%; height: 52%; opacity: .8; }
+.portrait.hasimg .picon { display: none; }
+.portrait.speaking { box-shadow: 0 0 4px var(--role-c), 0 0 16px var(--role-c); }
+.portrait.down { filter: grayscale(1) brightness(.55); }
+.portrait.low::after { content: ""; position: absolute; inset: 0; background: rgba(255, 40, 70, .28); animation: ptlow 1.4s ease-in-out infinite; }
+@keyframes ptlow { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .portrait.low::after { animation: none; } }
+@media (max-width: 820px) { :root { --pt: 0px; } .portrait { display: none; } .slot, .slot.back { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 .frame:hover { --fill-c: #161B28; }
 .frame.low { --edge-c: var(--hp-low); }
 .frame.threat { --edge-c: var(--warn); }
@@ -168,9 +192,9 @@ button:disabled { opacity: .55; cursor: default; }
   opacity: 0; transform: scale(.94); transition: opacity .12s, transform .12s; pointer-events: none; }
 .bubble.show { opacity: 1; transform: scale(1); }
 .bubble::after { content: ""; position: absolute; top: 20px; border: 11px solid transparent; }
-.bubble.left { right: calc(100% + 18px); }
+.bubble.left { right: calc(100% + 14px); }
 .bubble.left::after { left: 100%; border-left-color: var(--pink); }
-.bubble.right { left: calc(100% + 18px); }
+.bubble.right { left: calc(100% + 14px); }
 .bubble.right::after { right: 100%; border-right-color: var(--pink); }
 /* the boss speaks as the system: cold, notched, Orbitron */
 .bubble.boss { position: absolute; top: 4px; border: none; box-shadow: 0 0 14px rgba(41,133,251,.35), 0 8px 24px rgba(0,0,0,.6);
@@ -180,7 +204,7 @@ button:disabled { opacity: .55; cursor: default; }
   border: none; top: 2px; }
 .bubble.boss.left { right: calc(100% + 18px); }
 
-@media (max-width: 1180px) {
+@media (max-width: 1440px) {
   .bubble, .bubble.left, .bubble.right, .bubble.boss.left { left: 8px; right: auto; top: auto; bottom: calc(100% - 4px);
     width: auto; max-width: 270px; font-size: 1.02rem; padding: 7px 11px; }
   .bubble::after, .bubble.left::after, .bubble.right::after { top: 100%; left: 22px; right: auto; border-color: transparent; border-top-color: var(--pink); }

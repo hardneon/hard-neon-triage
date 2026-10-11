@@ -90,6 +90,7 @@
     };
     S.healer = S.chars.healer = {
       id: 'healer', isHealer: true, name: st.healerName || 'Healer', maxHp: h.hp, hp: h.hp, zone: h.startZone,
+      role: h.role, icon: h.icon, portrait: h.portrait, portraitFacing: h.portraitFacing,
       shield: 0, shieldEnd: 0, down: false, mana: h.mana, maxMana: h.mana, gcdEnd: 0, cast: null, cds: {},
       breathe: null, lastHealedAt: -99, lowSince: null
     };
@@ -577,6 +578,24 @@
     b._text.textContent = text;
   }
 
+  // Portrait beside a frame: the image if there is one, the role icon otherwise (or if the image fails to load).
+  function buildPortrait(c) {
+    const pt = el('div', 'portrait');
+    pt.setAttribute('aria-hidden', 'true'); // decorative: the name sits right next to it
+    const ci = D.icons?.[c.icon];
+    const fb = el('span', 'picon');
+    if (ci) fb.innerHTML = `<svg viewBox="0 0 24 24" fill="${ci.color}">${ci.svg}</svg>`;
+    pt.append(fb);
+    if (c.portrait) {
+      const img = el('img'); img.alt = ''; img.decoding = 'async'; img.draggable = false;
+      img.addEventListener('load', () => pt.classList.add('hasimg'));
+      img.addEventListener('error', () => img.remove());
+      img.src = c.portrait;
+      pt.append(img);
+    }
+    return pt;
+  }
+
   function buildUI() {
     $('#bossName').textContent = str('boss.name');
     ui.bossHp = bar('boss'); $('#bossHp').replaceChildren(ui.bossHp);
@@ -589,6 +608,9 @@
     $('#frontList').replaceChildren(); $('#backList').replaceChildren();
     S.order.forEach((id, i) => {
       const c = S.chars[id];
+      const slot = el('div', 'slot'); slot.dataset.id = id;
+      slot.style.setProperty('--role-c', D.party.roleColors?.[c.role] || '#9AA3B5');
+      const pt = buildPortrait(c);
       const f = el('button', 'frame'); f.type = 'button'; f.dataset.id = id;
       const head = el('div', 'fhead');
       const nm = el('span', 'fname', c.name);
@@ -605,9 +627,11 @@
       if (!c.isHealer) { st = bar('st'); f.append(st); }
       const status = el('div', 'fstatus'); const act = el('div', 'faction'); const cap_ = el('div', 'bubble');
       const flo = el('div', 'ffloat');
-      f.append(status, act, cap_, flo);
+      f.append(status, act, flo);
+      slot.append(pt, f, cap_);
       f.addEventListener('click', () => { S.target = id; });
-      ui.frames[id] = { f, hp, st, warn, status, act, cap: cap_, flo, tgt, zone: null };
+      pt.addEventListener('click', () => { S.target = id; });
+      ui.frames[id] = { f, slot, pt, hp, st, warn, status, act, cap: cap_, flo, tgt, zone: null };
     });
     ui.mana = bar('mana'); $('#mana').replaceChildren(ui.mana);
     ui.cast = bar('cast'); $('#cast').replaceChildren(ui.cast);
@@ -663,7 +687,12 @@
     // frames
     for (const id of S.order) {
       const c = S.chars[id], u = ui.frames[id];
-      if (u.zone !== c.zone) { (c.zone === 'front' ? $('#frontList') : $('#backList')).append(u.f); u.zone = c.zone; }
+      if (u.zone !== c.zone) {
+        (c.zone === 'front' ? $('#frontList') : $('#backList')).append(u.slot); u.zone = c.zone;
+        setCls(u.slot, 'back', c.zone !== 'front');
+        // face into the screen: front column looks right, back column looks left
+        setCls(u.pt, 'flip', (c.portraitFacing || 'right') !== (c.zone === 'front' ? 'right' : 'left'));
+      }
       const hpText = str('ui.hpText', { hp: Math.ceil(c.hp), max: c.maxHp, pct: Math.ceil(pct(c) * 100) }) + (c.shield > 0 ? `  +${Math.ceil(c.shield)}◆` : '');
       setBar(u.hp, pct(c), hpText);
       const low = !c.down && pct(c) < D.party.lowHpAt;
@@ -680,6 +709,8 @@
       if (u.st) setBar(u.st, c.stamina / c.maxStamina, `${Math.floor(c.stamina)} st`);
       setCls(u.f, 'selected', S.target === id);
       setCls(u.f, 'down', c.down);
+      setCls(u.pt, 'down', c.down);
+      setCls(u.pt, 'low', low);
       u.tgt.textContent = S.target === id ? str('ui.target') : '';
       const sts = [];
       if (c.down) sts.push(c.isHealer ? str('status.down') : str('ui.reviveHint'));
@@ -700,6 +731,7 @@
       const showBubble = c.caption && c.captionEnd > S.t;
       if (showBubble) u.cap.textContent = c.caption;
       setCls(u.cap, 'show', !!showBubble);
+      setCls(u.pt, 'speaking', !!showBubble);
       setCls(u.cap, 'left', c.zone === 'front');
       setCls(u.cap, 'right', c.zone !== 'front');
       const fl = [];
