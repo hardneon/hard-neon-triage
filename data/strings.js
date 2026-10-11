@@ -75,7 +75,8 @@ DATA.strings = {
       "Click a party member (or press F1–F4) to target them, then press 1–8 to cast.",
       "Orange bars inside a frame are incoming attacks. Heal or Ward that person before the bar runs out.",
       "Mend is instant but costly. Restore is efficient. Renewal is big but slow. Pressing another spell cancels your current cast.",
-      "Tab switches between back and front line. Radiance (big group heal) and reviving front-liners only work up front, where you can get hit.",
+      "Tab switches between back and front line, even mid-cast. Radiance heals your current line over time. To revive someone you must be in their line when the cast finishes.",
+      "Revive is only interrupted by warned attacks (orange bars). Ward yourself first and nothing can interrupt it.",
       "Out of mana? Breathe (7) to recover faster. Any action or hit stops it.",
       "Hale (shield) taunts to pull hits onto himself. Vex (dagger) hits hardest but is fragile. Pell (star) casts from the back line.",
       "Allies run out of stamina. Invigorate (6) gets them back in the fight.",
@@ -135,7 +136,16 @@ DATA.strings = {
     "factRevived": "Revived {n}×",
     "factClean": "Never in danger",
     "reviewLog": "Review log",
-    "showResult": "Show results"
+    "showResult": "Show results",
+    "castThreat": "{attack} will interrupt!",
+    "castShielded": "Warded vs {attack}",
+    "tips": {
+      "revive": "Tip: 8 revives a downed ally. Ward yourself (4) first and warned attacks can't interrupt it.",
+      "aoe": "Tip: 5 (Radiance) heals your whole line over time. Cast it as Cleave's warning bar runs out.",
+      "shield": "Tip: 4 (Ward) absorbs a hit. Put it on whoever has an orange warning bar.",
+      "step": "Tip: Tab switches lines, even mid-cast. Step back to dodge front-line hits.",
+      "breathe": "Tip: 7 (Breathe) triples mana regen after a short wind-up. Use it in quiet moments."
+    }
   },
 
   "zone": { "front": "front line", "back": "back line" },
@@ -145,11 +155,11 @@ DATA.strings = {
     "med_heal":        { "name": "Restore",    "tag": "+{amount} · {cast}", "desc": "Medium heal. Most mana-efficient." },
     "heavy_heal":      { "name": "Renewal",    "tag": "+{amount} · {cast}", "desc": "Big, slow heal. Start it before a big hit lands." },
     "shield":          { "name": "Ward",       "tag": "{amount} shield · {cast}", "desc": "Absorbs damage for a while. Can target yourself." },
-    "aoe_heal":        { "name": "Radiance",   "tag": "+{amount} front · {cast}", "desc": "Big heal to everyone in the front line. Must stand in front. Long cooldown." },
+    "aoe_heal":        { "name": "Radiance",   "tag": "+{amount} over {dur}s · line", "desc": "Heals everyone in your current line over 6 seconds. Cast it as Cleave is coming. Recasting refreshes it." },
     "stamina_restore": { "name": "Invigorate", "tag": "+{amount} stamina", "desc": "Restore an ally's stamina." },
     "breathe":         { "name": "Breathe",    "tag": "×{mult} mana", "desc": "After a short wind-up, triple mana regen. Any action or hit breaks it." },
-    "revive":          { "name": "Revive",     "tag": "{pct}% HP · {cast}", "desc": "Bring a downed ally back at 50% HP. Must be in their line. Long cooldown. Interrupted if you're hit." },
-    "step":            { "name": "Step",       "tag": "switch line", "desc": "Instantly switch lines. Cancels casting. Short cooldown." }
+    "revive":          { "name": "Revive",     "tag": "{pct}% HP · {cast}", "desc": "Bring a downed ally back at 50% HP. Must be in their line when it finishes. Warned attacks (orange bars) interrupt it unless you're Warded. Long cooldown." },
+    "step":            { "name": "Step",       "tag": "switch line", "desc": "Instantly switch lines. Your cast keeps going. Short cooldown." }
   },
 
   "allyAbilities": {
@@ -172,6 +182,7 @@ DATA.strings = {
   "status": {
     "down": "✖ Down",
     "shield": "◆ Ward {n}",
+    "hot": "✚ Radiance {secs}s",
     "exhausted": "▼ Exhausted",
     "neglected": "! Neglected",
     "restless": "» Restless",
@@ -196,6 +207,7 @@ DATA.strings = {
     "follow": "{name} follows to the {zone}",
     "cancel": "Cast cancelled",
     "interrupted": "{ability} interrupted!",
+    "castFailedZone": "{ability} failed: wrong line",
     "revived": "{name} is back on their feet",
     "win": "The Warden falls.",
     "lose": "The party is defeated."

@@ -19,6 +19,19 @@ About 10 minutes. You need a Google account.
 ## If you change Code.gs later
 Deploy → **Manage deployments** → edit (pencil) → Version: **New version** → Deploy.
 This keeps the same URL. (A *new deployment* would give you a new URL.)
+Saving the script alone does **not** update the live web app.
+
+## Updating to the v0.19 script
+1. Paste the new `Code.gs` over the old one, Save.
+2. Run `setup` once. It adds a **Settings** tab (nothing else changes).
+3. Redeploy as above (Manage deployments → New version).
+4. Reload the Sheet: a **Triage** menu appears with **Refresh summary**.
+
+## Settings tab
+- **B1 = version filter.** Type e.g. `v0.19` to make the Summary count only that version; leave blank for all.
+  Then use **Triage → Refresh summary** (it also refreshes on every new run).
+- **Dev runs:** play with `?dev=1` on the end of the link (e.g. `.../hard-neon-triage/?dev=1`). The game shows
+  "DEV" next to the version, and those runs are always left out of the Summary (the Overview shows how many).
 
 ## Notes
 - No player ID is stored. Each page load gets a random session ID kept in memory only, so you

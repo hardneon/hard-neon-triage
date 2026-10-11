@@ -21,7 +21,7 @@ DATA.boss = {
       "weights": { "hale": 60, "vex": 25, "pell": 10, "healer": 5 } },
 
     { "id": "seeker_bolt", "hits": "single", "pool": "back", "interval": 26.7, "firstAt": 21.3, "telegraph": 2.0, "damage": 200,
-      "weights": { "pell": 50, "healer": 50 },
+      "weights": { "pell": 70, "healer": 30 },
       "modifiers": { "recentlyHealed": 40 } },
 
     { "id": "searing_ground", "hits": "zone", "zone": "front", "minPhase": 2, "interval": 29.3, "firstAt": 5.3, "telegraph": 2.7,

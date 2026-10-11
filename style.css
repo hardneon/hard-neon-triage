@@ -89,6 +89,8 @@ h1#title { margin: 0 0 16px; display: flex; align-items: baseline; gap: 10px; fl
 .bar.cast .fill { background: var(--cast); } .bar.cast .bartext { color: var(--text); }
 .bar.cast.breathing .fill { background: var(--breathe); }
 .bar.cast.wasted .fill { background: #5B6170; } .bar.cast.wasted .bartext { color: var(--warn); }
+.bar.cast.threat { background: #3A2400; } .bar.cast.threat .fill { background: var(--warn); } .bar.cast.threat .bartext { font-weight: 700; }
+.result .tip { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--warn); background: rgba(255,144,0,.08); font-size: .9rem; }
 .bar.gcd { height: 4px; clip-path: none; box-shadow: none; } .bar.gcd .fill { background: var(--signal); } .bar.gcd .bartext { display: none; }
 .bar.boss { height: 24px; } .bar.boss .fill { background: linear-gradient(90deg, #7A1E45, var(--boss)); }
 .bar.warn { height: 22px; background: #3A2400; box-shadow: none; } .bar.warn .fill { background: var(--warn); }

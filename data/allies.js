@@ -35,7 +35,7 @@ DATA.party = {
     },
     {
       "id": "vex", "name": "Vex", "pronouns": "she", "role": "melee", "icon": "role_melee", "zone": "front",
-      "hp": 650, "stamina": 100, "dps": 33.75,
+      "hp": 750, "stamina": 100, "dps": 33.75,
       "want": "status", "fear": "stagnation",
       "abilities": [
         { "id": "flurry", "cost": 35, "cd": 5.3, "damage": 180, "critChance": 0.3, "critMult": 2.5 },

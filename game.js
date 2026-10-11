@@ -162,7 +162,7 @@
   function damage(c, amt, opts = {}) {
     if (c.down || amt <= 0) return;
     if (c.isHealer && c.breathe) c.breathe = null; // any hit breaks Breathe
-    if (c.isHealer && c.cast && c.cast.ab?.interruptOnHit) {
+    if (c.isHealer && c.cast && castInterruptedBy(c, c.cast.ab, opts)) {
       if (c.cast.ab.type === 'revive') S.stats.reviveInterrupts++;
       log(str('log.interrupted', { ability: abName(c.cast.ab.id) }), 'bad');
       notify(str('log.interrupted', { ability: abName(c.cast.ab.id) }));
@@ -181,6 +181,7 @@
       c.hp = 0; c.down = true; c.shield = 0;
       log(str('log.down', { name: c.name }), 'bad');
       if (c.rv) c.rv.downs++;
+      if (!S.firstDown) S.firstDown = { at: +S.t.toFixed(1), who: c.id, by: opts.attackId || '', manaPct: Math.round(S.healer.mana / S.healer.maxMana * 100) };
       bossBark(c.isHealer ? 'healer_downed' : 'ally_downed', { who: c.name }, true);
       if (c.isHealer) c.cast = null;
       c.casting = null;
@@ -194,7 +195,16 @@
     if (sh && after < sh.below && c.shakenEnd <= S.t) { c.shakenEnd = S.t + sh.duration; bark(c.id, 'shaken', {}, 2); }
   }
 
-  function heal(c, amt) {
+  // Which hits break a cast. "telegraphed": only attacks with a warning bar (not untelegraphed hits or burning ground).
+  // shieldProtects: an active shield on the caster prevents the interrupt.
+  function castInterruptedBy(c, ab, opts) {
+    if (!ab) return false;
+    if (ab.interruptBy !== 'any' && !(ab.interruptBy === 'telegraphed' && opts.telegraphed)) return false;
+    if (ab.shieldProtects && c.shield > 0 && S.t < c.shieldEnd) return false;
+    return true;
+  }
+
+  function heal(c, amt, opts = {}) {
     if (c.down) return;
     const eff = Math.min(amt, c.maxHp - c.hp);
     c.hp += eff;
@@ -205,6 +215,7 @@
     c.neglected = false;
     const sh = c.rules?.shaken;
     if (sh && c.shakenEnd > S.t && pct(c) >= sh.clearAbove) c.shakenEnd = 0;
+    if (opts.silent) return;
     c.healText = { text: `+${Math.round(eff)}`, end: S.t + 0.9 };
     if (wasLow && Math.random() < 0.6) bark(c.id, 'healed');
   }
@@ -263,7 +274,7 @@
     if (tg && tg.down !== !!ab.downedOnly) return notify(str('ui.targetDown'));
     if (h.mana < ab.mana) return notify(str('ui.noMana'));
     if (ab.requiresZone && h.zone !== ab.requiresZone) return notify(str('ui.needsZone', { ability: abName(ab.id), zone: zoneName(ab.requiresZone) }));
-    if (ab.sameZone && tg && tg.zone !== h.zone) return notify(str('ui.needsSameZone', { ability: abName(ab.id), target: tg.name, zone: zoneName(tg.zone) }));
+    if (ab.sameZone && tg && tg.zone !== h.zone) { S.stats.cancels++; log(str('log.castFailedZone', { ability: abName(ab.id) }), 'bad'); return notify(str('ui.needsSameZone', { ability: abName(ab.id), target: tg.name, zone: zoneName(tg.zone) })); }
     h.mana -= ab.mana; S.stats.manaSpent += ab.mana; S.stats.casts++;
     S.stats.byAbility[ab.id] = (S.stats.byAbility[ab.id] || 0) + 1;
     const cd = ab.type === 'revive' ? (S.diff.reviveCd ?? ab.cd) : ab.cd;
@@ -271,7 +282,9 @@
     switch (ab.type) {
       case 'heal': heal(tg, ab.amount); break;
       case 'shield': tg.shield = ab.amount; tg.shieldEnd = S.t + ab.duration; bark(tg.id, 'shielded'); break;
-      case 'aoe_heal': for (const c of living()) if (c.zone === h.zone) heal(c, ab.amount); break;
+      case 'aoe_heal': // heal over time on everyone in your current line; recasting refreshes it
+        for (const c of living()) if (c.zone === h.zone) c.hot = { perSec: ab.amount / ab.duration, end: S.t + ab.duration, shown: 0 };
+        break;
       case 'stamina':
         tg.stamina = Math.min(tg.maxStamina, tg.stamina + ab.amount);
         if (tg.exhausted && tg.stamina >= D.party.exhaustRecoverAt) tg.exhausted = false;
@@ -283,11 +296,11 @@
     }
   }
 
-  // Step is instant; its cost is a cooldown. Moving cancels any cast.
+  // Step is instant; its cost is a cooldown. Casts continue while you move (v0.19);
+  // line rules (Revive's same-line, etc.) are checked again when the cast completes. Breathe still stops.
   function doStep() {
     const h = S.healer;
     S.stats.steps++;
-    if (h.cast) { h.cast = null; S.stats.cancels++; }
     h.breathe = null;
     if (AB.step.cd) h.cds.step = S.t + AB.step.cd;
     completeStep();
@@ -458,12 +471,12 @@
       if (!c || c.down) return;
       let dmg = atk.damage * S.diff.bossDamage;
       if (tg.blinked) dmg *= c.rules.blink.damageMult;
-      damage(c, dmg, { attackId: atk.id });
+      damage(c, dmg, { attackId: atk.id, telegraphed: !!atk.telegraph });
     } else if (atk.area) {
       S.boss.areas.push({ zone: atk.zone, dps: atk.area.dps * S.diff.bossDamage, end: S.t + atk.area.duration, attackId: atk.id });
       log(str('log.areaStart', { attack: atkName(atk.id), zone: zoneName(atk.zone) }), 'warn');
     } else {
-      for (const c of living()) if (c.zone === atk.zone) damage(c, atk.damage * S.diff.bossDamage, { attackId: atk.id });
+      for (const c of living()) if (c.zone === atk.zone) damage(c, atk.damage * S.diff.bossDamage, { attackId: atk.id, telegraphed: !!atk.telegraph });
     }
   }
 
@@ -490,8 +503,16 @@
     for (const ar of B.areas) for (const c of living()) if (c.zone === ar.zone) damage(c, ar.dps * dt, { attackId: ar.attackId, silent: true });
   }
 
-  function updateMisc() {
+  function updateMisc(dt) {
     for (const c of Object.values(S.chars)) if (c.shield > 0 && S.t >= c.shieldEnd) c.shield = 0;
+    for (const c of Object.values(S.chars)) {
+      if (!c.hot) continue;
+      if (c.down || S.t >= c.hot.end) { c.hot = null; continue; }
+      const before = c.hp;
+      heal(c, c.hot.perSec * dt, { silent: true });
+      c.hot.shown += c.hp - before;
+      if (c.hot.shown >= 1 && (!c.healText || c.healText.end <= S.t + 0.5)) { c.healText = { text: `+${Math.round(c.hot.shown)}`, end: S.t + 0.9 }; c.hot.shown = 0; }
+    }
     for (const s of S.scheduled.slice()) if (S.t >= s.at) { S.scheduled.splice(S.scheduled.indexOf(s), 1); s.fn(); }
   }
 
@@ -520,6 +541,7 @@
 
   function endFight(win) {
     S.over = true; S.result = win;
+    S.endReason = win ? 'boss_down' : (S.healer.down ? 'healer_down' : 'party_down');
     log(str(win ? 'log.win' : 'log.lose'), win ? 'good' : 'bad');
     bossBark(win ? 'defeated' : 'victory', {}, true);
     for (const a of allies()) {
@@ -534,7 +556,7 @@
 
   function step(dt) {
     S.t += dt;
-    updateMisc();
+    updateMisc(dt);
     updateHealer(dt);
     updateAllies(dt);
     updateBoss(dt);
@@ -600,7 +622,7 @@
       if (icon) { ic.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="${icon.color}">${icon.svg}</svg>`; }
       const n = el('span', 'abname', abName(ab.id));
       const castLbl = ab.cast > 0 ? str('ui.castTime', { s: ab.cast }) : str('ui.instant');
-      const tagVars = { amount: ab.amount, pct: Math.round((ab.amount || 0) * 100), mult: ab.regenMult, cast: castLbl };
+      const tagVars = { amount: ab.amount, pct: Math.round((ab.amount || 0) * 100), mult: ab.regenMult, cast: castLbl, dur: ab.duration };
       const tg = el('span', 'abtag', str(`abilities.${ab.id}.tag`, tagVars));
       const m = el('span', 'abmana', ab.mana ? str('ui.manaCost', { n: ab.mana }) : str('ui.free'));
       const cd = el('span', 'abcd', '');
@@ -662,6 +684,7 @@
       const sts = [];
       if (c.down) sts.push(c.isHealer ? str('status.down') : str('ui.reviveHint'));
       if (c.shield > 0) sts.push(str('status.shield', { n: Math.ceil(c.shield) }));
+      if (c.hot && c.hot.end > S.t) sts.push(str('status.hot', { secs: Math.ceil(c.hot.end - S.t) }));
       if (c.exhausted) sts.push(str('status.exhausted'));
       if (c.neglected) sts.push(str('status.neglected'));
       if (c.restless) sts.push(str('status.restless'));
@@ -694,14 +717,17 @@
       let label = str('ui.casting', { ability: abName(h.cast.ab.id), target: tgc?.name ?? zoneName(h.zone) });
       const full = h.cast.ab.type === 'heal' && tgc && !tgc.down && tgc.hp >= tgc.maxHp;
       if (full) label = str('ui.targetFull');
+      const threat = castThreat(h);
+      if (threat) label += `  ${threat.shielded ? '◆ ' + str('ui.castShielded', { attack: atkName(threat.atk.id) }) : '⚠ ' + str('ui.castThreat', { attack: atkName(threat.atk.id) })}`;
       setBar(ui.cast, frac, `${label}  ${fmtS(Math.max(0, h.cast.end - S.t))}s`);
       setCls(ui.cast, 'wasted', full);
+      setCls(ui.cast, 'threat', !!threat && !threat.shielded);
     } else if (h.breathe) {
       const on = S.t - h.breathe.start >= AB.breathe.windup;
       const frac = on ? 1 : (S.t - h.breathe.start) / AB.breathe.windup;
       setBar(ui.cast, frac, str('ui.breathing', { state: on ? str('ui.breatheActive', { mult: AB.breathe.regenMult }) : str('ui.breatheWindup') }));
     } else setBar(ui.cast, 0, str('ui.idle'));
-    if (!h.cast) setCls(ui.cast, 'wasted', false);
+    if (!h.cast) { setCls(ui.cast, 'wasted', false); setCls(ui.cast, 'threat', false); }
     setCls(ui.cast, 'breathing', !!h.breathe);
     const g = Math.max(0, h.gcdEnd - S.t);
     setBar(ui.gcd, g / D.party.healer.gcd, g > 0 ? `${str('ui.gcd')} ${fmtS(g)}` : '');
@@ -727,6 +753,29 @@
     }
   }
 
+  // A warned attack that will land on you before your interruptible cast finishes (for the cast-bar warning).
+  function castThreat(h) {
+    const ab = h.cast?.ab;
+    if (!ab || ab.interruptBy !== 'telegraphed') return null;
+    const hits = S.boss.telegraphs.filter(tg => tg.end <= h.cast.end && !tg.atk.area &&
+      (tg.targetId === 'healer' || (tg.atk.hits === 'zone' && tg.atk.zone === h.zone))).sort((a, b) => a.end - b.end);
+    if (!hits.length) return null;
+    const tg = hits[0];
+    return { atk: tg.atk, shielded: !!(ab.shieldProtects && h.shield > 0 && h.shieldEnd > tg.end) };
+  }
+
+  // One tip on the results screen about a tool the player never touched (only if it would have mattered).
+  function resultTip() {
+    const s = S.stats, used = id => (s.byAbility[id] || 0) > 0;
+    const anyDown = allies().some(a => a.rv.downs > 0);
+    if (anyDown && !s.reviveAttempts) return str('ui.tips.revive');
+    if (!used('aoe_heal')) return str('ui.tips.aoe');
+    if (!used('shield')) return str('ui.tips.shield');
+    if (!s.steps) return str('ui.tips.step');
+    if (!used('breathe') && s.manaSpent > 800) return str('ui.tips.breathe');
+    return null;
+  }
+
   function showResult() {
     const r = $('#result');
     const s = S.stats;
@@ -746,6 +795,8 @@
     row(str('ui.cancels'), `${s.cancels}`);
     row(str('ui.downed'), downed.length ? downed.join(', ') : str('ui.none'));
     r.append(dl);
+    const tip = resultTip();
+    if (tip) r.append(el('p', 'tip', tip));
     const rv = el('div', 'verdicts');
     rv.append(el('h3', '', str('ui.partySays')));
     for (const a of allies()) {
@@ -818,7 +869,9 @@
 
   // ---------- telemetry ----------
   // Anonymous playtest data. Session id lives only in memory (new each page load); nothing is stored on the device.
-  const TEL = { sessionId: Math.random().toString(36).slice(2, 10), runIndex: 0, shareNames: true };
+  // ?dev=1 in the URL marks runs as developer tests so the Summary can leave them out.
+  const TEL = { sessionId: Math.random().toString(36).slice(2, 10), runIndex: 0, shareNames: true,
+    dev: /[?&]dev=1\b/.test(location.search) };
 
   function post(payload) {
     const url = D.settings.telemetryUrl;
@@ -838,7 +891,9 @@
       healingDone: Math.round(s.healed), overhealPct: total ? Math.round(s.overheal / total * 100) : 0,
       manaSpent: s.manaSpent, casts: s.casts, cancels: s.cancels, steps: s.steps,
       reviveAttempts: s.reviveAttempts, reviveInterrupts: s.reviveInterrupts, revives: s.revives,
-      healerDown: S.healer.down,
+      healerDown: S.healer.down, endReason: S.endReason || '',
+      firstDownAt: S.firstDown?.at ?? '', firstDownWho: S.firstDown?.who || '', firstDownBy: S.firstDown?.by || '', firstDownManaPct: S.firstDown?.manaPct ?? '',
+      dev: TEL.dev,
       gender: st.gender, pronouns: st.pronouns, namesShared: TEL.shareNames, mature: S.run.mature,
       healerName: TEL.shareNames ? st.healerName : ''
     };
@@ -855,7 +910,7 @@
   }
 
   function sendFeedback(fun, hard, comment, wantMature) {
-    return post({ type: 'feedback', sessionId: TEL.sessionId, runId: S.run.runId, version: S.run.version,
+    return post({ type: 'feedback', sessionId: TEL.sessionId, runId: S.run.runId, version: S.run.version, dev: TEL.dev,
       difficulty: S.run.difficulty, speed: S.run.speed, result: S.result ? 'win' : 'loss', fun, hard, comment, wantMature });
   }
 
@@ -920,7 +975,7 @@
     document.title = str('ui.title');
     t.setAttribute('aria-label', str('ui.title'));
     $('#setupTitle').textContent = str('ui.setupTitle');
-    $('#version').textContent = D.settings.version;
+    $('#version').textContent = D.settings.version + (TEL.dev ? ' · DEV' : '');
     const how = $('#howTo'); how.replaceChildren();
     how.append(el('summary', '', str('ui.howToTitle')));
     const ul = el('ul'); for (const line of D.strings.ui.howTo) ul.append(el('li', '', fmt(line, baseVars()))); how.append(ul);

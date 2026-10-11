@@ -9,17 +9,28 @@
  *   Runs     — one row per finished fight (columns added automatically as the game adds fields)
  *   Feedback — one row per submitted rating/comment, linked to a run by runId
  *   Summary  — rebuilt after every submission: win rates, settings, names, ratings, ability use
+ *   Settings — B1: version filter for the Summary (e.g. v0.19; blank = all versions). Dev runs (?dev=1) are always left out.
+ *
+ * After pasting a new version of this script: Deploy → Manage deployments → Edit → Version: New version → Deploy.
+ * (Saving alone does not update the live web app.) Use the "Triage" menu → Refresh summary after changing Settings.
  */
 
 const RUNS = 'Runs';
 const FEEDBACK = 'Feedback';
 const SUMMARY = 'Summary';
+const SETTINGS = 'Settings';
 const MAX_TEXT = 1000; // cap any single text value
 const MAX_FIELDS = 120;
 
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   [RUNS, FEEDBACK, SUMMARY].forEach(name => ss.getSheetByName(name) || ss.insertSheet(name));
+  if (!ss.getSheetByName(SETTINGS)) {
+    const st = ss.insertSheet(SETTINGS);
+    st.getRange('A1:B2').setValues([['Version filter', ''], ['(blank = all versions, e.g. v0.19)', '']]);
+    st.getRange('B1').setNumberFormat('@');
+    st.getRange('A1').setFontWeight('bold');
+  }
   ensureHeaders_(ss.getSheetByName(RUNS), ['receivedAt']);
   ensureHeaders_(ss.getSheetByName(FEEDBACK), ['receivedAt']);
   const first = ss.getSheets()[0];
@@ -46,6 +57,13 @@ function doPost(e) {
     lock.releaseLock();
   }
 }
+
+// Custom menu so the Summary can be rebuilt after changing Settings.
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('Triage').addItem('Refresh summary', 'refreshSummary').addToUi();
+}
+
+function refreshSummary() { refreshSummary_(); }
 
 // Handy for checking the URL in a browser.
 function doGet() { return out_({ ok: true, msg: 'Triage telemetry is running.' }); }
@@ -106,12 +124,21 @@ function avg_(rows, key) {
   return nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length * 10) / 10 : '';
 }
 
+const isTrue_ = v => v === true || v === 'TRUE' || v === 'true';
+const pct_ = (n, d) => ({ pct: d ? n / d : 0 }); // written as a real percentage with an explicit format
+
 function refreshSummary_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const runs = readTable_(ss.getSheetByName(RUNS));
-  const fb = readTable_(ss.getSheetByName(FEEDBACK));
+  const st = ss.getSheetByName(SETTINGS);
+  const verFilter = st ? String(st.getRange('B1').getValue() || '').trim() : '';
+  const keep = r => !isTrue_(r.dev) && (!verFilter || String(r.version) === verFilter);
+  const allRuns = readTable_(ss.getSheetByName(RUNS)), allFb = readTable_(ss.getSheetByName(FEEDBACK));
+  const runs = allRuns.filter(keep);
+  const fb = allFb.filter(keep);
+  const devRuns = allRuns.filter(r => isTrue_(r.dev)).length;
   const sh = ss.getSheetByName(SUMMARY) || ss.insertSheet(SUMMARY);
   sh.clear();
+  sh.clearFormats();
   const blocks = [];
   const add = (title, header, rows) => blocks.push({ title, header, rows: rows.length ? rows : [['(no data yet)']] });
 
@@ -121,10 +148,12 @@ function refreshSummary_() {
     ['Fights played', runs.length],
     ['Play sessions', Object.keys(sessions).length],
     ['Wins', wins],
-    ['Win rate', runs.length ? Math.round(wins / runs.length * 100) + '%' : ''],
+    ['Win rate', runs.length ? pct_(wins, runs.length) : ''],
     ['Feedback entries', fb.length],
     ['Avg fun (1–5)', avg_(fb, 'fun')],
     ['Avg hard (1–5)', avg_(fb, 'hard')],
+    ['Version filter', verFilter || '(all versions)'],
+    ['Dev runs left out', devRuns],
     ['Last updated', new Date()]
   ]);
 
@@ -134,7 +163,7 @@ function refreshSummary_() {
       const rs = runs.filter(r => String(r.difficulty) === d);
       const w = rs.filter(r => r.result === 'win').length;
       const fs = fb.filter(f => String(f.difficulty) === d);
-      return [d, rs.length, w, Math.round(w / rs.length * 100) + '%', avg_(rs, 'fightTime'),
+      return [d, rs.length, w, pct_(w, rs.length), avg_(rs, 'fightTime'),
         avg_(rs.filter(r => r.result === 'loss'), 'bossPctLeft'), avg_(fs, 'fun'), avg_(fs, 'hard')];
     }));
 
@@ -143,6 +172,14 @@ function refreshSummary_() {
   add('Pronouns', ['Pronouns', 'Fights'], count_(runs, 'pronouns'));
   add('Shared names?', ['namesShared', 'Fights'], count_(runs, 'namesShared'));
   add('Mature mode', ['Mature on?', 'Fights'], count_(runs, 'mature'));
+  add('How fights ended', ['End', 'Fights'], count_(runs, 'endReason'));
+  add('First ally down', ['Who', 'Fights'], count_(runs.filter(r => r.firstDownWho), 'firstDownWho'));
+  add('What caused the first down', ['Attack', 'Fights'], count_(runs.filter(r => r.firstDownWho), 'firstDownBy'));
+  add('First down: timing', ['Metric', 'Value'], [
+    ['Fights with a down', runs.filter(r => r.firstDownWho).length],
+    ['Avg time of first down (s)', avg_(runs, 'firstDownAt')],
+    ['Avg healer mana at first down (%)', avg_(runs, 'firstDownManaPct')]
+  ]);
   add('Nickname pack chosen', ['Pack', 'Fights'], count_(runs, 'nickPack'));
   add('Want more mature options?', ['Answer', 'Responses'], count_(fb.filter(f => f.wantMature !== '' && f.wantMature != null), 'wantMature'));
 
@@ -154,7 +191,7 @@ function refreshSummary_() {
   });
   add('Nickname set at all?', ['Ally', '% of fights with a nickname'], ['hale', 'vex', 'pell'].map(id => {
     const n = runs.filter(r => r['nickSet_' + id] === true || r['nickSet_' + id] === 'TRUE').length;
-    return [id, runs.length ? Math.round(n / runs.length * 100) + '%' : ''];
+    return [id, runs.length ? pct_(n, runs.length) : ''];
   }));
 
   add('Ally outcomes', ['Ally', 'Happy', 'Fine', 'Unhappy', 'Defeated', 'Downed', 'Avg neglects', 'Avg low-HP time (s)'], ['hale', 'vex', 'pell'].map(id => {
@@ -166,7 +203,8 @@ function refreshSummary_() {
   add('Ability use (avg per fight)', ['Ability', 'Avg uses'],
     useKeys.map(k => [k.replace('use_', ''), avg_(runs, k)]).concat([
       ['line switches', avg_(runs, 'steps')], ['cancels', avg_(runs, 'cancels')],
-      ['revive attempts', avg_(runs, 'reviveAttempts')], ['revive interrupts', avg_(runs, 'reviveInterrupts')]
+      ['revive attempts', avg_(runs, 'reviveAttempts')], ['revive interrupts', avg_(runs, 'reviveInterrupts')],
+      ['revives (successful)', avg_(runs, 'revives')]
     ]));
 
   // write blocks top to bottom
@@ -180,7 +218,13 @@ function refreshSummary_() {
     }
     const width = Math.max.apply(null, b.rows.map(r => r.length));
     const padded = b.rows.map(r => r.concat(Array(width - r.length).fill('')));
-    sh.getRange(row, 1, padded.length, width).setValues(padded);
+    // Explicit formats so Sheets never re-reads counts as percentages (or text as numbers).
+    const fmts = padded.map(r => r.map(v => v && typeof v === 'object' && 'pct' in v ? '0%'
+      : v instanceof Date ? 'yyyy-mm-dd hh:mm' : typeof v === 'number' ? 'General' : '@'));
+    const vals = padded.map(r => r.map(v => (v && typeof v === 'object' && 'pct' in v ? v.pct : v)));
+    const rng = sh.getRange(row, 1, padded.length, width);
+    rng.setNumberFormats(fmts);
+    rng.setValues(vals);
     row += padded.length + 1;
   });
   sh.autoResizeColumns(1, 8);
