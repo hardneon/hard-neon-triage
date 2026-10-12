@@ -7,7 +7,7 @@
 window.DATA = window.DATA || {};
 DATA.boss = {
   "id": "warden",
-  "hp": 16000,
+  "hp": 32000,         // v0.21: allies now stay busy (~2x damage); keeps fights ~2.7 min
   "phase2At": 0.4,
   "targeting": { "recentlyHealedWindow": 4 },
   "barks": { "duration": 4, "cooldown": 6.7, "chance": { "attack_cleave": 0.6, "attack_seeker_bolt": 0.7 } },

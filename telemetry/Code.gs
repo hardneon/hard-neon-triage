@@ -199,6 +199,11 @@ function refreshSummary_() {
     return [id, c('great'), c('ok'), c('poor'), c('lost'), c('downed'), avg_(runs, id + '_neglects'), avg_(runs, id + '_lowTime')];
   }));
 
+  // v0.21+: blank for older runs (they didn't send these fields)
+  add('Ally activity (avg per fight, v0.21+)', ['Ally', 'Damage', 'Exhausted (s)', 'Signatures', 'Sig. interrupted', 'Ultras', 'Ultra interrupted', 'Acted out'],
+    ['hale', 'vex', 'pell'].map(id => [id, avg_(runs, id + '_dmg'), avg_(runs, id + '_exh'), avg_(runs, id + '_sig'), avg_(runs, id + '_sigInt'),
+      avg_(runs, id + '_ult'), avg_(runs, id + '_ultInt'), avg_(runs, id + '_fears')]));
+
   const useKeys = runs.length ? Object.keys(runs[0]).filter(k => k.indexOf('use_') === 0) : [];
   add('Ability use (avg per fight)', ['Ability', 'Avg uses'],
     useKeys.map(k => [k.replace('use_', ''), avg_(runs, k)]).concat([

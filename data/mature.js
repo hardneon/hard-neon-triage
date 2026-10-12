@@ -25,7 +25,9 @@ DATA.mature = {
       "revived":          ["You came for me. Good. Remember how that felt."],
       "review_great":     ["{gender, select, feminine {Good girl. You'll get your reward.} masculine {Good boy. You'll get your reward.} other {Good pet. You'll get your reward.}}", "You did exactly what I needed. Come here, {nickname}."],
       "review_poor":      ["We'll talk about where your attention was, {nickname}."],
-      "review_lost":      ["Look at me. You'll do better for me next time."]
+      "review_lost":      ["Look at me. You'll do better for me next time."],
+      "signature":        ["Behind me. Stay there."],
+      "ultra":            ["Mine. All of it."]
     },
     "vex": {
       "healed":           ["Ooh, right there! Again!", "Your hands are magic, {nickname}. Don't stop."],
@@ -37,7 +39,9 @@ DATA.mature = {
       "revived":          ["Mouth-to-mouth next time, {nickname}."],
       "review_great":     ["You were incredible. Almost as incredible as me.", "Buy me a drink after this, {nickname}. You've earned the view."],
       "review_poor":      ["All this to look at, and you looked away? Rude."],
-      "review_lost":      ["Next time, keep your eyes on me. I know it's not hard."]
+      "review_lost":      ["Next time, keep your eyes on me. I know it's not hard."],
+      "signature":        ["Watch me, {nickname}. You'll want to remember this."],
+      "ultra":            ["Watch me, {nickname}. You'll want to remember this."]
     },
     "pell": {
       "healed":           ["Ugh, finally. I was getting bored.", "That's it? I'm not saying thank you."],
@@ -45,9 +49,10 @@ DATA.mature = {
       "low_hp":           ["Oops. Guess you'll have to come fix me, {nickname}."],
       "neglected":        ["Pay attention to me!", "Hey. Hey. {nickname}. Hey."],
       "revived":          ["Took you long enough. Finally!"],
-      "review_great":     ["Fine. You were good. Don't let it go to your head, {nickname}."],
+      "review_great":     ["Fine. You were good, I guess. Don't let it go to your head, {nickname}."],
       "review_poor":      ["That's it? I expected you to put me in my place."],
-      "review_lost":      ["Your fault. Go on, punish me for it, {nickname}."]
+      "review_lost":      ["Your fault. Go on, punish me for it, {nickname}."],
+      "acting_out":       ["Fine, I'll do everything myself.", "Whatever. I don't need you anyway."]
     }
   }
 };

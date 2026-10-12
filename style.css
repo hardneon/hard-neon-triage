@@ -148,6 +148,32 @@ h1#title { margin: 0 0 16px; display: flex; align-items: baseline; gap: 10px; fl
 .ftarget { margin-left: auto; font: 700 .62rem var(--sys); letter-spacing: .12em; color: var(--focus); }
 .fstatus { font-size: .78rem; min-height: 1.1em; color: var(--warn); font-weight: 600; }
 .faction { display: none; }
+/* v0.21: ultra meter, ability strip, lunge / hit, boss damage floats */
+.bar.ult { height: 5px; clip-path: none; margin-top: 2px; } .bar.ult .fill { background: repeating-linear-gradient(90deg, #FF7AD9 0 10px, #C93CFF 10px 12px); } .bar.ult .bartext { display: none; }
+.bar.ult.ready { box-shadow: 0 0 6px #FF7AD9, 0 0 14px rgba(255,122,217,.6); }
+.pstrip { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 4px; z-index: 2; background: rgba(5,8,16,.82);
+  font: 700 .6rem/1.15 var(--sys); letter-spacing: .02em; text-transform: uppercase; color: var(--role-c); text-align: center;
+  overflow-wrap: anywhere; opacity: 0; transition: opacity .15s; }
+.pstrip.show { opacity: 1; }
+.portrait.winding { box-shadow: 0 0 6px var(--role-c), 0 0 20px var(--role-c); }
+.portrait.ultra { box-shadow: 0 0 8px #FF7AD9, 0 0 26px #FF7AD9; border-color: #FF7AD9; }
+.portrait { transition: box-shadow .15s, filter .2s, transform .12s; }
+.portrait.lunge { transform: translateY(-6px) scale(1.05); }
+.portrait.hit { animation: pthit .2s linear; filter: brightness(1.6) saturate(.6); }
+@keyframes pthit { 0%,100% { translate: 0; } 25% { translate: -4px 0; } 75% { translate: 4px 0; } }
+.bfloats { position: relative; height: 0; }
+.bfloat { position: absolute; top: -22px; right: 0; font: 800 .95rem var(--body); text-shadow: 0 1px 2px #000; pointer-events: none;
+  animation: bfl 1.1s ease-out forwards; }
+.bfloat:nth-child(2) { right: 60px; } .bfloat:nth-child(3) { right: 120px; } .bfloat:nth-child(4) { right: 180px; }
+.bfloat:nth-child(5) { right: 240px; } .bfloat:nth-child(6) { right: 300px; }
+.bfloat.crit { font-size: 1.25rem; }
+@keyframes bfl { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-18px); } }
+@media (prefers-reduced-motion: reduce) {
+  .portrait, .portrait.lunge { transform: none; transition: box-shadow .15s, filter .2s; }
+  .portrait.hit { animation: none; }
+  .bfloat { animation: bflfade 1.1s linear forwards; }
+}
+@keyframes bflfade { from { opacity: 1; } to { opacity: 0; } }
 .ffloat { position: absolute; top: 6px; right: 64px; font-weight: 800; font-size: .9rem; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000; }
 
 /* ---------- healer controls ---------- */

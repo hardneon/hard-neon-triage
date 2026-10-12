@@ -59,6 +59,17 @@ DATA.strings = {
       ]
     },
     "classes": { "tank": "Tank: pulls hits onto himself", "melee": "Striker: big damage, fragile", "ranged": "Caster: steady damage from the back" },
+    "wantTip": "{name} wants {want}",
+    "wants": {
+      "connection":    "Connection: fills whenever you look after them",
+      "status":        "Recognition: fills fastest when you look after them during their big moments",
+      "actualization": "Growth: fills as they land their Signature and stay in the fight",
+      "dominance":     "Control: fills when you heal who they call, and while they hold aggro healthy",
+      "pleasure":      "Comfort: fills from overhealing and Radiance",
+      "stability":     "Safety: fills from Wards and steady health"
+    },
+    "factUltra": "{ability} ×{n}",
+    "factActedOut": "acted out ×{n}",
     "matureLabel": "Mature content (18+)",
     "matureCheck": "I'm 18 or older and want the mature mode",
     "matureHelp": "Adds suggestive nicknames, teasing and power-dynamic dialogue. Nothing explicit. Off by default; you can change it any time here.",
@@ -79,7 +90,10 @@ DATA.strings = {
       "Revive is only interrupted by warned attacks (orange bars). Ward yourself first and nothing can interrupt it.",
       "Out of mana? Breathe (7) to recover faster. Any action or hit stops it.",
       "Hale (shield) taunts to pull hits onto himself. Vex (dagger) hits hardest but is fragile. Pell (star) casts from the back line.",
-      "Allies run out of stamina. Invigorate (6) gets them back in the fight.",
+      "Allies run out of stamina. Invigorate (6) refills it, and they act at once.",
+      "Big moves need a wind-up. A warned attack (orange bar) breaks it unless that ally is Warded.",
+      "Each ally Wants something (hover their frame). Give it to them to charge their Ultra (★).",
+      "Under pressure, allies act out (⚠). Looking after them can calm them down.",
       "Your party will tell you how you did afterwards."
     ],
     "start": "Start fight",
@@ -165,7 +179,10 @@ DATA.strings = {
   "allyAbilities": {
     "taunt": "Taunt", "shield_slam": "Shield Slam",
     "flurry": "Flurry", "lunge": "Lunge",
-    "firebolt": "Firebolt"
+    "firebolt": "Firebolt",
+    "bulwark": "Bulwark", "last_stand": "Last Stand",
+    "overdrive": "Overdrive Flurry", "death_blossom": "Death Blossom",
+    "inferno": "Inferno", "meteor": "Meteor"
   },
 
   "boss": {
@@ -193,7 +210,15 @@ DATA.strings = {
     "casting": "… {ability}",
     "called": "☞ Called",
     "targeted": "⚠ {attack}",
-    "crit": "Crit!"
+    "crit": "Crit!",
+    "windup": "‼ {ability} {secs}s",
+    "ultraReady": "★ Ultra ready",
+    "partyGuard": "▣ Bulwark",
+    "lastStand": "⛨ Last Stand",
+    "behaviours": {
+      "attention": "⚠ Seeking attention", "sulk": "⚠ Sulking", "reckless": "⚠ Reckless",
+      "panic": "⚠ Panicking", "flinch": "⚠ Flinching", "freeze": "⚠ Frozen up"
+    }
   },
 
   "log": {
@@ -209,6 +234,13 @@ DATA.strings = {
     "interrupted": "{ability} interrupted!",
     "castFailedZone": "{ability} failed: wrong line",
     "revived": "{name} is back on their feet",
+    "windup": "{name} winds up {ability}!",
+    "windupInterrupted": "{name}'s {ability} was interrupted!",
+    "moveLands": "{name}'s {ability} lands!",
+    "ultraReady": "{name}'s {ability} is charged",
+    "actingOut": "{name} is acting out: {behaviour}",
+    "calmed": "{name} calms down",
+    "settles": "{name} settles down",
     "win": "The Warden falls.",
     "lose": "The party is defeated."
   },
@@ -225,7 +257,8 @@ DATA.strings = {
       "ally_downed":          ["One falls.", "{who} breaks so easily."],
       "healer_downed":        ["Without their healer, they are nothing."],
       "victory":              ["Bring me another healer."],
-      "defeated":             ["This… isn't… over…"]
+      "defeated":             ["This… isn't… over…"],
+      "ally_ultra":           ["{who}? Show me, then.", "Is that supposed to scare me, {who}?"]
     },
     "hale": {
       "fight_start":      ["Form up. {nickname}, behind me.", "Eyes on me. Keep us standing."],
@@ -240,6 +273,10 @@ DATA.strings = {
       "telegraph":        ["{attack}! Brace!", "Front line, {attack}!"],
       "calls_target":     ["{who, select, self {Heal me, {nickname}!} healer {Heal yourself, {nickname}!} other {Heal {target}!}}", "{who, select, self {On me. Now.} healer {Keep yourself up!} other {{target} needs you. Now.}}"],
       "phase_change":     ["It's getting angry. Stay sharp."],
+      "signature":        ["Behind me. Brace!", "Bulwark! Stay close."],
+      "ultra":            ["Everything on me. NOW!"],
+      "windup_interrupted": ["Broke my stance. Again."],
+      "acting_out":       ["Fine. I'll make them look at me."],
       "victory":          ["Clean work."],
       "revived":          ["…I didn't need that. Back in line."],
       "review_great":     ["You kept me standing. Good.", "You'll do. Good."],
@@ -260,6 +297,10 @@ DATA.strings = {
       "targeted":         ["Bring it!", "Watch me dodge this, {nickname}."],
       "greedy":           ["Did you see that? I'm not moving for anything!", "You see that, {nickname}? Tell me you saw that."],
       "restless":         ["Forget waiting, I'm going in!", "I'm bored, {nickname}. Going in!"],
+      "signature":        ["Watch THIS, {nickname}!", "Overdrive!"],
+      "ultra":            ["Showtime!"],
+      "windup_interrupted": ["Hey! I was doing a thing!"],
+      "acting_out":       ["Forget waiting, I'm going in!", "I'm bored, {nickname}. Going in!"],
       "victory":          ["Told you I'm the best.", "Told you I'm the best. You helped, {nickname}. A little."],
       "revived":          ["Okay, that didn't happen. Got it?", "Not a word, {nickname}."],
       "review_great":     ["Not bad. I made you look good.", "See? We're a great team. Mostly me.", "Not bad, {nickname}. I made you look good."],
@@ -281,6 +322,10 @@ DATA.strings = {
       "blink":            ["Blinking out!"],
       "follows":          ["Wait for me!", "I'm coming with you."],
       "shaken":           ["Sorry, sorry, I messed up…"],
+      "signature":        ["Okay… okay. Inferno!"],
+      "ultra":            ["I can do this… METEOR!"],
+      "windup_interrupted": ["That— that wasn't my fault."],
+      "acting_out":       ["That was on purpose. Obviously.", "I'm fine. I don't need anything."],
       "victory":          ["We made it. Together."],
       "revived":          ["You came back for me… thank you."],
       "review_great":     ["I felt safe the whole time. Thank you, {nickname}.", "Can we stick together next time too?"],
@@ -288,6 +333,18 @@ DATA.strings = {
       "review_poor":      ["I thought you'd forgotten me.", "…It's fine. I know I'm not the priority."],
       "review_downed":    ["I'm sorry I got in the way…"],
       "review_lost":      ["We… didn't make it. Are you okay, {nickname}?", "It's not your fault. …Is it?"]
+    },
+    // Fallbacks for characters with no lines of their own. Lines never name the fear behind the behaviour.
+    "_generic": {
+      "acting_out_attention": ["Over here! Look at me!"],
+      "acting_out_sulk":      ["Whatever. Do it yourself."],
+      "acting_out_reckless":  ["Forget this, I'm going in!"],
+      "acting_out_panic":     ["I can't— I need to get out of here!"],
+      "acting_out_flinch":    ["Ow— okay, okay, careful!"],
+      "acting_out_freeze":    ["I'm not moving. Not yet."],
+      "signature":            ["Here goes!"],
+      "ultra":                ["Everything I've got!"],
+      "windup_interrupted":   ["Hey!"]
     }
   }
 };

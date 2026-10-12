@@ -60,7 +60,9 @@
   function barkPool(id, trigger) {
     const base = D.strings.barks[id]?.[trigger] || [];
     const extra = D.settings.mature ? (D.mature?.barks?.[id]?.[trigger] || []) : [];
-    return base.concat(extra);
+    const all = base.concat(extra);
+    // characters without their own lines fall back to shared ones (e.g. acting_out_reckless)
+    return all.length ? all : (D.strings.barks._generic?.[trigger] || []);
   }
   function nicknamePacks() {
     const base = D.nicknamePacks || [];
@@ -100,7 +102,11 @@
         shield: 0, shieldEnd: 0, down: false, abCds: {}, exhausted: false, exhaustedSince: null,
         restless: false, greedy: false, shakenEnd: 0, neglected: false, nextNeglectBark: 0,
         lastHealedAt: -99, lowSince: null, barkCd: 0, lastBark: {}, caption: null, captionEnd: 0,
-        rv: { neglects: 0, lowTime: 0, downs: 0, revives: 0 },
+        rv: { neglects: 0, lowTime: 0, downs: 0, revives: 0, exh: 0, dmg: 0, sig: 0, sigInt: 0, ult: 0, ultInt: 0, fears: 0 },
+        // v0.21 personality state
+        meter: 0, ultraReadyAt: null, sigReadyAt: a.signature?.firstAt ?? Infinity, surge: false,
+        momentUntil: 0, lastMomentAt: 0, lastSpikeAt: -99, lastCareAt: 0, homeZone: a.zone,
+        fearP: 0, fearAct: null, fearCdUntil: 0, lungeEnd: 0, hitFxEnd: 0, stamText: null,
         followAt: null, nextCall: a.rules?.callTarget?.interval ?? Infinity, action: null, actionEnd: 0, curDps: a.dps
       };
     }
@@ -109,7 +115,8 @@
     S.run = { version: st.version, difficulty: st.difficulty, speed: st.speed, mature: !!st.mature, runIndex: TEL.runIndex, runId: `${TEL.sessionId}-${TEL.runIndex}`, startedAt: new Date().toISOString() };
     S.diff = st.difficulties[st.difficulty] || st.difficulties.normal;
     const bossHp = Math.round(B.hp * S.diff.bossHp);
-    S.boss = { hp: bossHp, maxHp: bossHp, phase: 1, timers: {}, telegraphs: [], areas: [], caption: null, captionEnd: 0, barkCd: 0, lastBark: {} };
+    S.boss = { hp: bossHp, maxHp: bossHp, phase: 1, timers: {}, telegraphs: [], areas: [], caption: null, captionEnd: 0, barkCd: 0, lastBark: {}, burns: [] };
+    S.partyGuard = null; S.lastStand = null; S.bossFloats = [];
     for (const a of B.attacks) S.boss.timers[a.id] = (a.minPhase || 1) === 1 ? a.firstAt : Infinity;
     S.scheduled.push({ at: 0.1, fn: () => bossBark('fight_start') });
     D.party.allies.forEach((a, i) => S.scheduled.push({ at: 2.1 + i * 1.9, fn: () => bark(a.id, 'fight_start', {}, 1) }));
@@ -172,16 +179,28 @@
     let m = 1;
     if (c.restless) m *= c.rules.restless.takenMult;
     if (c.guardEnd > S.t) m *= c.guardMult;
+    if (S.partyGuard && S.partyGuard.end > S.t) m *= S.partyGuard.mult;
+    if (S.lastStand && S.lastStand.end > S.t && S.lastStand.id === c.id) m *= S.lastStand.mult;
+    if (c.fearAct?.effects.takenMult) m *= c.fearAct.effects.takenMult;
+    // an ally's big wind-up is broken by warned attacks unless they're warded
+    if (!c.isHealer && c.casting?.ab.tier && opts.telegraphed && !(c.shield > 0 && S.t < c.shieldEnd)) interruptWindup(c);
     if (c.greedy && opts.attackId === c.rules.greedyAfterCrit?.attack) { m *= c.rules.greedyAfterCrit.damageMult; c.greedy = false; }
     amt *= m;
     if (c.shield > 0) { const ab = Math.min(c.shield, amt); c.shield -= ab; amt -= ab; }
     const before = pct(c);
     c.hp -= amt;
-    if (!opts.silent && amt > 0) c.hitText = { text: `-${Math.round(amt)}`, end: S.t + 0.9 };
+    if (!opts.silent && amt > 0) { c.hitText = { text: `-${Math.round(amt)}`, end: S.t + 0.9 }; c.hitFxEnd = S.t + 0.2; }
+    if (!c.isHealer && amt > 0) {
+      const big = amt >= D.wants.bigHit;
+      if (big) c.lastSpikeAt = S.t;
+      if (!opts.silent) emit(c, 'hit_taken', { amount: amt, big });
+    }
     if (c.hp <= 0) {
       c.hp = 0; c.down = true; c.shield = 0;
       log(str('log.down', { name: c.name }), 'bad');
       if (c.rv) c.rv.downs++;
+      if (!c.isHealer) { if (c.casting?.ab.tier) interruptWindup(c, true); emit(c, 'downed'); endFear(c); }
+      for (const o of allies()) if (o !== c && !o.down) emit(o, 'ally_downed');
       if (!S.firstDown) S.firstDown = { at: +S.t.toFixed(1), who: c.id, by: opts.attackId || '', manaPct: Math.round(S.healer.mana / S.healer.maxMana * 100) };
       bossBark(c.isHealer ? 'healer_downed' : 'ally_downed', { who: c.name }, true);
       if (c.isHealer) c.cast = null;
@@ -210,6 +229,8 @@
     const eff = Math.min(amt, c.maxHp - c.hp);
     c.hp += eff;
     S.stats.healed += eff; S.stats.overheal += amt - eff;
+    if (!c.isHealer && amt - eff > 0) emit(c, 'overheal', { amount: amt - eff });
+    if (!opts.silent) care(c, 'heal');
     const wasLow = c.lowSince != null;
     c.lastHealedAt = S.t;
     c.lowSince = pct(c) < D.party.neglectBelow ? S.t : null;
@@ -225,7 +246,7 @@
     S.stats.revives++;
     Object.assign(c, {
       down: false, hp: Math.round(c.maxHp * frac), shield: 0, exhausted: false, restless: false, greedy: false,
-      shakenEnd: 0, neglected: false, lowSince: S.t, lastHealedAt: S.t, followAt: null
+      shakenEnd: 0, neglected: false, lowSince: S.t, lastHealedAt: S.t, followAt: null, casting: null, surge: false
     });
     c.stamina = Math.max(c.stamina, D.party.exhaustRecoverAt);
     if (c.rules?.followHealer) c.zone = S.healer.zone;
@@ -282,15 +303,18 @@
     if (cd) h.cds[ab.id] = S.t + cd;
     switch (ab.type) {
       case 'heal': heal(tg, ab.amount); break;
-      case 'shield': tg.shield = ab.amount; tg.shieldEnd = S.t + ab.duration; bark(tg.id, 'shielded'); break;
+      case 'shield': tg.shield = ab.amount; tg.shieldEnd = S.t + ab.duration; bark(tg.id, 'shielded'); care(tg, 'shield'); break;
       case 'aoe_heal': // heal over time on everyone in your current line; recasting refreshes it
-        for (const c of living()) if (c.zone === h.zone) c.hot = { perSec: ab.amount / ab.duration, end: S.t + ab.duration, shown: 0 };
+        for (const c of living()) if (c.zone === h.zone) { c.hot = { perSec: ab.amount / ab.duration, end: S.t + ab.duration, shown: 0 }; care(c, 'hot'); }
         break;
       case 'stamina':
         tg.stamina = Math.min(tg.maxStamina, tg.stamina + ab.amount);
         if (tg.exhausted && tg.stamina >= D.party.exhaustRecoverAt) tg.exhausted = false;
         tg.restless = false;
+        if (D.party.invigorateSurge) tg.surge = true;   // they act at once: the payoff is visible
+        tg.stamText = { text: `+${ab.amount} ⚡`, end: S.t + 1.2 };
         bark(tg.id, 'stamina_restored');
+        care(tg, 'invigorate');
         break;
       case 'breathe': h.breathe = { start: S.t }; break;
       case 'revive': revive(tg, ab.amount); break;
@@ -344,7 +368,147 @@
     if (a.neglected && a.rules.neglectPenalty) m *= a.rules.neglectPenalty.dpsMult;
     if (a.restless) m *= a.rules.restless.dpsMult;
     if (a.shakenEnd > S.t) m *= a.rules.shaken.dpsMult;
+    if (a.fearAct?.effects.dpsMult) m *= a.fearAct.effects.dpsMult;
     return m;
+  }
+
+  // ---------- personality (v0.21): Wants fill the Ultra meter, Fears build pressure until the ally acts out ----------
+  function condsHold(a, r) {
+    const hp = pct(a);
+    if (r.hpAbove != null && !(hp > r.hpAbove)) return false;
+    if (r.hpBelow != null && !(hp < r.hpBelow)) return false;
+    if (r.noSpikeFor != null && S.t - a.lastSpikeAt < r.noSpikeFor) return false;
+    if (r.active && a.exhausted) return false;
+    if (r.exhausted && !a.exhausted) return false;
+    if (r.taunting && !(S.taunt && S.taunt.id === a.id && S.taunt.end > S.t)) return false;
+    if (r.hotActive && !(a.hot && a.hot.end > S.t)) return false;
+    if (r.shielded && !(a.shield > 0 && S.t < a.shieldEnd)) return false;
+    if (r.uncaredFor != null && S.t - a.lastCareAt < r.uncaredFor) return false;
+    if (r.sinceMomentAbove != null && S.t - a.lastMomentAt < r.sinceMomentAbove) return false;
+    if (r.inFire && !S.boss.areas.some(ar => ar.zone === a.zone)) return false;
+    if (r.withHealer && a.zone !== S.healer.zone) return false;
+    return true;
+  }
+  function ruleGain(a, r, evt, data) {
+    if (r.tick || r.on !== evt) return 0;
+    if (r.kinds && !r.kinds.includes(data.kind)) return 0;
+    if (r.within === 'moment' && S.t >= a.momentUntil) return 0;
+    if (r.big && !data.big) return 0;
+    return r.per ? r.gain * (data.amount || 0) / r.per : r.gain;
+  }
+  function addMeter(a, g) {
+    if (!a.ultra || g <= 0 || a.ultraReadyAt != null) return;
+    const max = D.party.ultraMeterMax;
+    a.meter = Math.min(max, a.meter + g);
+    if (a.meter >= max) { a.ultraReadyAt = S.t; log(str('log.ultraReady', { name: a.name, ability: str(`allyAbilities.${a.ultra.id}`) }), 'good'); }
+  }
+  function emit(a, evt, data = {}) {
+    if (!a || a.isHealer || !a.rv) return;
+    const want = D.wants?.defs[a.want];
+    if (want && !a.down) for (const r of want.gains) addMeter(a, ruleGain(a, r, evt, data));
+    const fear = D.fears?.defs[a.fear];
+    if (fear && !a.fearAct && S.t >= a.fearCdUntil) for (const r of fear.pressure) a.fearP += ruleGain(a, r, evt, data);
+  }
+  // The healer looked after someone. kind: heal | shield | invigorate | hot
+  function care(c, kind) {
+    if (!c) return;
+    const cl = S.called;
+    if (cl && cl.end > S.t && cl.id === c.id && !cl.followed) { cl.followed = true; emit(S.chars[cl.by], 'followed'); }
+    if (c.isHealer || !c.rv) return;
+    c.lastCareAt = S.t;
+    emit(c, 'care', { kind });
+    const fa = c.fearAct;
+    if (fa && fa.def.calmBy?.includes(kind) && S.t - fa.start >= D.fears.minDuration) endFear(c, true);
+  }
+  function startFear(a, def) {
+    const fx = def.effects || {};
+    a.fearAct = { def, behaviour: def.behaviour, effects: fx, start: S.t, end: S.t + def.duration, prevZone: a.zone };
+    a.fearP = 0; a.rv.fears++;
+    if ((fx.noAbilities || fx.noSignature && a.casting?.ab.tier === 'signature' || fx.noUltra && a.casting?.ab.tier === 'ultra') && a.casting) {
+      if (a.casting.ab.tier) interruptWindup(a, true); else a.casting = null;
+    }
+    if (fx.moveTo && a.zone !== fx.moveTo) { a.zone = fx.moveTo; a.followAt = null; log(str('log.follow', { name: a.name, zone: zoneName(a.zone) }), 'sys'); }
+    log(str('log.actingOut', { name: a.name, behaviour: str(`status.behaviours.${def.behaviour}`) }), 'warn');
+    const own = barkPool(a.id, 'acting_out');
+    bark(a.id, own.length && D.strings.barks[a.id]?.acting_out ? 'acting_out' : `acting_out_${def.behaviour}`, {}, 2, true);
+  }
+  // calmed = the healer's care ended it early
+  function endFear(a, calmed = false) {
+    const fa = a.fearAct;
+    if (!fa) return;
+    a.fearAct = null; a.fearP = 0; a.fearCdUntil = S.t + D.fears.cooldown;
+    if (fa.effects.moveTo && !a.down) {
+      const z = a.rules.followHealer ? S.healer.zone : fa.prevZone;
+      if (a.zone !== z) { a.zone = z; log(str('log.follow', { name: a.name, zone: zoneName(a.zone) }), 'sys'); }
+    }
+    if (!a.down) log(str(calmed ? 'log.calmed' : 'log.settles', { name: a.name }), calmed ? 'good' : 'sys');
+  }
+  function updatePersonality(a, dt) {
+    const want = D.wants?.defs[a.want];
+    if (want) for (const r of want.gains) if (r.tick && condsHold(a, r)) addMeter(a, r.gain * dt);
+    const F = D.fears, fear = F?.defs[a.fear];
+    if (!fear) return;
+    if (a.fearAct) { if (S.t >= a.fearAct.end) endFear(a); return; }
+    if (S.t < a.fearCdUntil) { a.fearP = 0; return; }
+    for (const r of fear.pressure) if (r.tick && condsHold(a, r)) a.fearP += r.gain * dt;
+    a.fearP = Math.max(0, a.fearP - (fear.decay ?? F.decay) * dt);
+    if (a.fearP >= F.threshold) startFear(a, fear);
+  }
+
+  // ---------- ally actions ----------
+  function hitBoss(a, amt, crit = false) {
+    if (amt <= 0) return;
+    S.boss.hp -= amt; a.rv.dmg += amt;
+    S.bossFloats.push({ text: `-${Math.round(amt)}${crit ? '!' : ''}`, end: S.t + 1.1, crit, role: a.role, id: Math.random() });
+    if (S.bossFloats.length > 6) S.bossFloats.shift();
+  }
+  function moment(a) { a.momentUntil = S.t + D.wants.momentWindow; a.lastMomentAt = S.t; emit(a, 'moment'); }
+
+  // Ultra (when charged) beats Signature (when off cooldown). Returns true if a wind-up started.
+  function tryBigMove(a, fx) {
+    const P = D.party, U = a.ultra, Sg = a.signature;
+    const charged = a.meter >= P.ultraMeterMax || (fx.ultraAt != null && a.meter >= fx.ultraAt);
+    if (U && charged && !fx.noUltra) {
+      if (a.ultraReadyAt == null) a.ultraReadyAt = S.t;
+      // onThreat: wait for a warned attack that lands after the wind-up ends (or give up waiting after maxWait)
+      const go = U.timing !== 'onThreat' || S.t - a.ultraReadyAt >= (U.maxWait ?? 0) ||
+        S.boss.telegraphs.some(tg => tg.end - S.t > U.windup + 0.2);
+      if (go) { startWindup(a, U); return true; }
+    }
+    if (Sg && !fx.noSignature && !a.exhausted && S.t >= a.sigReadyAt) { startWindup(a, Sg); return true; }
+    return false;
+  }
+  function startWindup(a, mv) {
+    a.casting = { ab: mv, start: S.t, end: S.t + mv.windup };
+    if (mv.tier === 'signature') a.sigReadyAt = Infinity; // set again when it lands or is interrupted
+    bark(a.id, mv.tier, {}, 3, true);                      // the shout: 'signature' / 'ultra'
+    log(str('log.windup', { name: a.name, ability: str(`allyAbilities.${mv.id}`) }), mv.tier === 'ultra' ? 'good' : 'sys');
+    if (mv.tier === 'ultra') S.scheduled.push({ at: S.t + 0.8, fn: () => bossBark('ally_ultra', { who: a.name }) });
+  }
+  // A wind-up broken by a warned hit (or by going down: silent)
+  function interruptWindup(a, silent = false) {
+    const cs = a.casting;
+    if (!cs || !cs.ab.tier) return;
+    a.casting = null;
+    const P = D.party, name = str(`allyAbilities.${cs.ab.id}`);
+    if (cs.ab.tier === 'signature') { a.sigReadyAt = S.t + cs.ab.cd * P.signatureInterruptCdFrac; a.rv.sigInt++; emit(a, 'sig_interrupted'); }
+    else { a.meter = P.ultraMeterMax * P.ultraInterruptKeep; a.ultraReadyAt = null; a.rv.ultInt++; emit(a, 'ult_interrupted'); }
+    log(str('log.windupInterrupted', { name: a.name, ability: name }), 'bad');
+    if (!silent) bark(a.id, 'windup_interrupted', {}, 2, true);
+  }
+  function finishMove(a, mv) {
+    let dmg = (mv.damage || 0) * allyDamageMult(a), crit = false;
+    if (mv.critChance && Math.random() < mv.critChance) { dmg *= mv.critMult; crit = true; }
+    hitBoss(a, dmg, crit);
+    if (mv.burn) S.boss.burns.push({ dps: mv.burn.dps, end: S.t + mv.burn.duration, by: a.id });
+    if (mv.effect === 'party_guard') S.partyGuard = { mult: mv.takenMult, end: S.t + mv.duration, by: a.id };
+    if (mv.effect === 'last_stand') S.lastStand = { id: a.id, mult: mv.takenMult, end: S.t + mv.duration };
+    if (mv.tier === 'signature') { a.sigReadyAt = S.t + mv.cd; a.rv.sig++; emit(a, 'sig_landed'); }
+    else { a.meter = 0; a.ultraReadyAt = null; a.rv.ult++; }
+    moment(a);
+    a.action = str(`allyAbilities.${mv.id}`) + (crit ? ` — ${str('status.crit')}` : '');
+    a.actionEnd = S.t + 2; a.lungeEnd = S.t + 0.35;
+    log(str('log.moveLands', { name: a.name, ability: str(`allyAbilities.${mv.id}`) }), 'good');
   }
 
   function updateAllies(dt) {
@@ -354,25 +518,26 @@
       if (pct(a) < P.lowHpAt) a.rv.lowTime += dt;
       // stamina & exhaustion
       a.stamina = Math.min(a.maxStamina, a.stamina + P.staminaRegen * dt);
-      if (a.exhausted && a.stamina >= P.exhaustRecoverAt) a.exhausted = false;
-      const rs = a.rules.restless;
-      if (rs && a.exhausted && !a.restless && S.t - a.exhaustedSince >= rs.after) { a.restless = true; bark(a.id, 'restless', {}, 1); }
-      // abilities (first ready one, in listed order)
+      if (a.exhausted) { a.rv.exh += dt; if (a.stamina >= P.exhaustRecoverAt) a.exhausted = false; }
+      updatePersonality(a, dt);
+      const fx = a.fearAct?.effects || {};
+      // moves: wind-ups/casts finish; else Ultra/Signature; else regular abilities (keeping a stamina reserve)
       if (a.casting) {
-        if (S.t >= a.casting.end) { const ab = a.casting.ab; a.casting = null; finishAllyAbility(a, ab); }
-      } else if (!a.exhausted) {
+        if (S.t >= a.casting.end) { const ab = a.casting.ab; a.casting = null; if (ab.tier) finishMove(a, ab); else finishAllyAbility(a, ab); }
+      } else if (!fx.noAbilities && !tryBigMove(a, fx) && !a.exhausted) {
+        const reserve = a.surge ? 0 : (fx.reserve ?? a.rules.staminaReserve ?? 0);
         for (const ab of a.abilities) {
-          if (a.stamina >= ab.cost && (a.abCds[ab.id] || 0) <= S.t) { useAllyAbility(a, ab); break; }
+          if (a.stamina >= ab.cost && a.stamina - ab.cost >= reserve && (a.surge || (a.abCds[ab.id] || 0) <= S.t)) { a.surge = false; useAllyAbility(a, ab); break; }
         }
       }
       // sustained damage
       let dps = a.dps * allyDamageMult(a);
       if (a.exhausted) dps *= P.exhaustedDpsMult;
       a.curDps = dps;
-      S.boss.hp -= dps * dt;
+      S.boss.hp -= dps * dt; a.rv.dmg += dps * dt;
       // neglect
       if (a.lowSince != null && pct(a) < P.neglectBelow && S.t - a.lowSince >= P.neglectAfter) {
-        if (!a.neglected) { a.neglected = true; a.rv.neglects++; a.nextNeglectBark = S.t + P.neglectRebark; bark(a.id, 'neglected', {}, 1); }
+        if (!a.neglected) { a.neglected = true; a.rv.neglects++; a.nextNeglectBark = S.t + P.neglectRebark; bark(a.id, 'neglected', {}, 1); emit(a, 'neglected'); }
         else if (a.rules.repeatNeglectBark && S.t >= a.nextNeglectBark) { a.nextNeglectBark = S.t + P.neglectRebark; bark(a.id, 'neglected', {}, 1); }
       }
       // Hale: call targets
@@ -381,13 +546,13 @@
         a.nextCall = S.t + ct.interval;
         const cands = living();
         let pick = Math.random() < ct.selfChance ? a : cands.reduce((m, c) => (pct(c) < pct(m) ? c : m), cands[0]);
-        S.called = { id: pick.id, end: S.t + ct.duration };
+        S.called = { id: pick.id, end: S.t + ct.duration, by: a.id, followed: false };
         bark(a.id, 'calls_target', { target: pick.name, who: pick === a ? 'self' : pick.isHealer ? 'healer' : 'other' }, 1);
       }
-      // Pell: follow healer
+      // Pell: follow healer (not while panicking at the back)
       if (a.followAt != null && S.t >= a.followAt) {
         a.followAt = null;
-        if (a.zone !== S.healer.zone) { a.zone = S.healer.zone; log(str('log.follow', { name: a.name, zone: zoneName(a.zone) }), 'sys'); }
+        if (a.zone !== S.healer.zone && !fx.moveTo) { a.zone = S.healer.zone; log(str('log.follow', { name: a.name, zone: zoneName(a.zone) }), 'sys'); }
       }
     }
   }
@@ -398,7 +563,7 @@
     if (ab.cast) {
       // cast-time ability: slowed by being Shaken
       const slow = a.shakenEnd > S.t ? a.rules.shaken.dpsMult : 1;
-      a.casting = { ab, end: S.t + ab.cast / slow };
+      a.casting = { ab, start: S.t, end: S.t + ab.cast / slow };
       return;
     }
     finishAllyAbility(a, ab);
@@ -410,7 +575,9 @@
     let dmg = ab.damage * allyDamageMult(a);
     let crit = false;
     if (ab.critChance && Math.random() < ab.critChance) { dmg *= ab.critMult; crit = true; }
-    S.boss.hp -= dmg;
+    hitBoss(a, dmg, crit);
+    if (dmg > 0) a.lungeEnd = S.t + 0.25;
+    if (crit) moment(a);
     a.action = str(`allyAbilities.${ab.id}`) + (crit ? ` — ${str('status.crit')}` : '');
     a.actionEnd = S.t + 1.5;
     if (crit && a.rules.greedyAfterCrit && !a.greedy) { a.greedy = true; bark(a.id, 'greedy', {}, 1); }
@@ -424,6 +591,9 @@
     const B = D.boss;
     const cands = living().filter(c => atk.pool === 'any' || c.zone === atk.pool);
     if (!cands.length) return null;
+    // Last Stand: every single-target attack goes to the tank who called it
+    const ls = S.lastStand;
+    if (ls && ls.end > S.t && !S.chars[ls.id].down) return ls.id;
     const mods = atk.modifiers || {};
     const lowest = cands.reduce((m, c) => (pct(c) < pct(m) ? c : m), cands[0]);
     const w = cands.map(c => {
@@ -432,6 +602,7 @@
       if (mods.lowestHp && c === lowest) x += mods.lowestHp;
       if (mods.healer && c.isHealer) x += mods.healer;
       if (S.taunt && S.taunt.end > S.t && S.taunt.id === c.id) x *= S.taunt.mult;
+      if (c.fearAct?.effects.aggroMult) x = Math.max(x, 1) * c.fearAct.effects.aggroMult;
       return x;
     });
     const total = w.reduce((s, x) => s + x, 0);
@@ -455,6 +626,7 @@
       if (c.isHealer) bossBark('targets_healer', { attack: name });
       else bossBark(`attack_${atk.id}`, { target: c.name, attack: name });
       log(str('log.telegraph', { attack: name, target: c.name }), 'warn');
+      emit(c, 'targeted');
       const bl = c.rules?.blink;
       if (bl && c.stamina >= bl.cost && !c.exhausted) { c.stamina -= bl.cost; tg.blinked = true; bark(c.id, 'blink', {}, 2); }
       else bark(c.id, 'targeted', { attack: name }, 2);
@@ -500,6 +672,8 @@
     for (const tg of B.telegraphs.slice()) {
       if (S.t >= tg.end) { B.telegraphs.splice(B.telegraphs.indexOf(tg), 1); resolveAttack(tg); }
     }
+    B.burns = B.burns.filter(b => b.end > S.t);
+    for (const b of B.burns) { const d = b.dps * dt; B.hp -= d; S.chars[b.by].rv.dmg += d; }
     B.areas = B.areas.filter(ar => ar.end > S.t);
     for (const ar of B.areas) for (const c of living()) if (c.zone === ar.zone) damage(c, ar.dps * dt, { attackId: ar.attackId, silent: true });
   }
@@ -593,6 +767,7 @@
       img.src = c.portrait;
       pt.append(img);
     }
+    pt.append(el('div', 'pstrip'));   // what they're doing right now (ability name), over the bottom of the portrait
     return pt;
   }
 
@@ -624,14 +799,17 @@
       const warn = bar('warn'); warn.hidden = true;
       f.append(head, warn, hp);
       let st = null;
+      let ult = null;
       if (!c.isHealer) { st = bar('st'); f.append(st); }
+      if (c.ultra) { ult = bar('ult'); f.append(ult); }
+      if (c.want) f.title = str('ui.wantTip', { name: c.name, want: str(`ui.wants.${c.want}`) });
       const status = el('div', 'fstatus'); const act = el('div', 'faction'); const cap_ = el('div', 'bubble');
       const flo = el('div', 'ffloat');
       f.append(status, act, flo);
       slot.append(pt, f, cap_);
       f.addEventListener('click', () => { S.target = id; });
       pt.addEventListener('click', () => { S.target = id; });
-      ui.frames[id] = { f, slot, pt, hp, st, warn, status, act, cap: cap_, flo, tgt, zone: null };
+      ui.frames[id] = { f, slot, pt, hp, st, ult, warn, status, act, cap: cap_, flo, tgt, zone: null, strip: pt.querySelector('.pstrip') };
     });
     ui.mana = bar('mana'); $('#mana').replaceChildren(ui.mana);
     ui.cast = bar('cast'); $('#cast').replaceChildren(ui.cast);
@@ -656,6 +834,7 @@
       abBox.append(b); ui.abs[ab.id] = { b, cd };
     }
     $('#log').replaceChildren();
+    $('#bossFloats')?.replaceChildren(); ui.bossFloatKey = '';
     $('#showResult').hidden = true;
     $('#showResult').textContent = str('ui.showResult');
   }
@@ -670,6 +849,16 @@
     if (bShow) bb.textContent = B.caption;
     setCls(bb, 'show', !!bShow);
     $('#timer').textContent = `${fmtS(S.t)}s`;
+    // allies' hits on the boss (rebuilt only when the set changes, so each float animates once)
+    S.bossFloats = S.bossFloats.filter(x => x.end > S.t);
+    const bfKey = S.bossFloats.map(x => x.id).join();
+    if (bfKey !== ui.bossFloatKey && $('#bossFloats')) {
+      ui.bossFloatKey = bfKey;
+      $('#bossFloats').replaceChildren(...S.bossFloats.map(x => {
+        const e = el('span', `bfloat${x.crit ? ' crit' : ''}`, x.text);
+        e.style.color = D.party.roleColors?.[x.role] || ''; return e;
+      }));
+    }
 
     // telegraphs
     const tl = $('#telegraphs'); tl.replaceChildren();
@@ -681,8 +870,11 @@
       row.append(b); tl.append(row);
     }
     const fa = B.areas.filter(a => a.zone === 'front'), ba = B.areas.filter(a => a.zone === 'back');
-    $('#frontArea').textContent = fa.length ? `🔥 ${str('ui.burning', { secs: fmtS(Math.max(...fa.map(a => a.end - S.t))) })}` : '';
-    $('#backArea').textContent = ba.length ? `🔥 ${str('ui.burning', { secs: fmtS(Math.max(...ba.map(a => a.end - S.t))) })}` : '';
+    // party-wide Bulwark shows once per line, beside burning ground
+    const pg = S.partyGuard && S.partyGuard.end > S.t ? `${str('status.partyGuard')} ${fmtS(S.partyGuard.end - S.t)}s` : '';
+    const zoneTxt = ar => [ar.length ? `🔥 ${str('ui.burning', { secs: fmtS(Math.max(...ar.map(a => a.end - S.t))) })}` : '', pg].filter(Boolean).join('  ');
+    $('#frontArea').textContent = zoneTxt(fa);
+    $('#backArea').textContent = zoneTxt(ba);
 
     // frames
     for (const id of S.order) {
@@ -707,6 +899,17 @@
         setBar(u.warn, left / tg.atk.telegraph, `⚠ ${atkName(tg.atk.id)}  ${fmtS(left)}s` + (incoming.length > 1 ? `  +${incoming.length - 1}` : ''));
       } else if (!u.warn.hidden) u.warn.hidden = true;
       if (u.st) setBar(u.st, c.stamina / c.maxStamina, `${Math.floor(c.stamina)} st`);
+      if (u.ult) { setBar(u.ult, c.meter / D.party.ultraMeterMax, ''); setCls(u.ult, 'ready', c.ultraReadyAt != null); }
+      setCls(u.pt, 'lunge', c.lungeEnd > S.t);
+      setCls(u.pt, 'hit', c.hitFxEnd > S.t);
+      const winding = c.casting?.ab.tier;
+      setCls(u.pt, 'winding', !!winding && !c.down);
+      setCls(u.pt, 'ultra', winding === 'ultra' && !c.down);
+      if (u.strip) {
+        const sTxt = c.down ? '' : c.casting ? str(`allyAbilities.${c.casting.ab.id}`) + '…' : (c.actionEnd > S.t ? c.action : '');
+        if (u.strip.textContent !== sTxt) u.strip.textContent = sTxt;
+        setCls(u.strip, 'show', !!sTxt);
+      }
       setCls(u.f, 'selected', S.target === id);
       setCls(u.f, 'down', c.down);
       setCls(u.pt, 'down', c.down);
@@ -723,7 +926,10 @@
       if (c.greedy) sts.push(str('status.greedy'));
       if (S.taunt && S.taunt.id === id && S.taunt.end > S.t) sts.push(str('status.taunt'));
       if (c.guardEnd > S.t) sts.push(str('status.guard'));
-      if (c.casting) sts.push(str('status.casting', { ability: str(`allyAbilities.${c.casting.ab.id}`) }));
+      if (c.fearAct) sts.push(str(`status.behaviours.${c.fearAct.behaviour}`));
+      if (c.casting && !c.down) sts.push(str(c.casting.ab.tier ? 'status.windup' : 'status.casting', { ability: str(`allyAbilities.${c.casting.ab.id}`), secs: fmtS(Math.max(0, c.casting.end - S.t)) }));
+      else if (c.ultraReadyAt != null && !c.down) sts.push(str('status.ultraReady'));
+      if (S.lastStand && S.lastStand.end > S.t && S.lastStand.id === id) sts.push(str('status.lastStand'));
       if (S.called && S.called.id === id && S.called.end > S.t) sts.push(str('status.called'));
       u.status.textContent = sts.join('  ');
       setCls(u.f, 'threat', incoming.length > 0 && !c.down);
@@ -737,6 +943,7 @@
       const fl = [];
       if (c.hitText && c.hitText.end > S.t) fl.push(c.hitText.text);
       if (c.healText && c.healText.end > S.t) fl.push(c.healText.text);
+      if (c.stamText && c.stamText.end > S.t) fl.push(c.stamText.text);
       u.flo.textContent = fl.join(' ');
     }
 
@@ -841,6 +1048,8 @@
       if (a.rv.lowTime >= 1) facts.push(str('ui.factLow', { n: Math.round(a.rv.lowTime) }));
       if (a.rv.downs) facts.push(str('ui.factDowned', { n: a.rv.downs }));
       if (a.rv.revives) facts.push(str('ui.factRevived', { n: a.rv.revives }));
+      if (a.rv.ult) facts.push(str('ui.factUltra', { n: a.rv.ult, ability: str(`allyAbilities.${a.ultra.id}`) }));
+      if (a.rv.fears) facts.push(str('ui.factActedOut', { n: a.rv.fears }));
       row_.append(el('div', 'vfacts', facts.length ? facts.join(' · ') : str('ui.factClean')));
       rv.append(row_);
     }
@@ -936,6 +1145,9 @@
       const c = S.chars[a.id];
       p[`${a.id}_verdict`] = c.verdict; p[`${a.id}_neglects`] = c.rv.neglects;
       p[`${a.id}_lowTime`] = Math.round(c.rv.lowTime); p[`${a.id}_downs`] = c.rv.downs;
+      p[`${a.id}_exh`] = Math.round(c.rv.exh); p[`${a.id}_dmg`] = Math.round(c.rv.dmg);
+      p[`${a.id}_sig`] = c.rv.sig; p[`${a.id}_sigInt`] = c.rv.sigInt;
+      p[`${a.id}_ult`] = c.rv.ult; p[`${a.id}_ultInt`] = c.rv.ultInt; p[`${a.id}_fears`] = c.rv.fears;
     }
     for (const ab of D.abilities) if (ab.type !== 'step') p[`use_${ab.id}`] = s.byAbility[ab.id] || 0;
     post(p);
