@@ -5,15 +5,17 @@
 // v0.19: aoe_heal is a heal-over-time on your current line ("amount" spread over "duration"; recasting refreshes).
 //        revive: only telegraphed attacks interrupt it ("interruptBy"), and an active shield on you prevents that.
 //        Stepping no longer cancels casts; line rules are checked at cast start and completion.
+// v0.22: Mend is cheaper but less efficient than Restore (speed costs efficiency). Breathe ×5 (base regen is lower).
+//        Invigorate's "rushSignature": the ally's Signature becomes ready at once (longer cooldown to match).
 window.DATA = window.DATA || {};
 DATA.abilities = [
-  { "id": "light_heal", "icon": "cross1",      "key": "Digit1", "keyLabel": "1",   "type": "heal",     "cast": 0,   "mana": 60,  "amount": 120, "cd": 0,    "gcd": true,  "targeted": true },
+  { "id": "light_heal", "icon": "cross1",      "key": "Digit1", "keyLabel": "1",   "type": "heal",     "cast": 0,   "mana": 40,  "amount": 120, "cd": 0,    "gcd": true,  "targeted": true },
   { "id": "med_heal", "icon": "cross2",        "key": "Digit2", "keyLabel": "2",   "type": "heal",     "cast": 1.6, "mana": 50,  "amount": 200, "cd": 0,    "gcd": true,  "targeted": true },
   { "id": "heavy_heal", "icon": "cross3",      "key": "Digit3", "keyLabel": "3",   "type": "heal",     "cast": 3.3, "mana": 120, "amount": 450, "cd": 0,    "gcd": true,  "targeted": true },
   { "id": "shield", "icon": "shield",          "key": "Digit4", "keyLabel": "4",   "type": "shield",   "cast": 0,   "mana": 80,  "amount": 150, "cd": 13.3, "gcd": true,  "targeted": true, "duration": 10.7 },
   { "id": "aoe_heal", "icon": "burst",        "key": "Digit5", "keyLabel": "5",   "type": "aoe_heal", "cast": 1.0, "mana": 150, "amount": 250, "duration": 6, "cd": 16, "gcd": true,  "targeted": false },
-  { "id": "stamina_restore", "icon": "bolt", "key": "Digit6", "keyLabel": "6",   "type": "stamina",  "cast": 0,   "mana": 70,  "amount": 40,  "cd": 8,    "gcd": true,  "targeted": true, "allyOnly": true },
-  { "id": "breathe", "icon": "drop",         "key": "Digit7", "keyLabel": "7",   "type": "breathe",  "cast": 0,   "mana": 0,   "cd": 0,    "gcd": false, "targeted": false, "windup": 1.33, "regenMult": 3 },
+  { "id": "stamina_restore", "icon": "bolt", "key": "Digit6", "keyLabel": "6",   "type": "stamina",  "cast": 0,   "mana": 70,  "amount": 40,  "cd": 18,   "gcd": true,  "targeted": true, "allyOnly": true, "rushSignature": true },
+  { "id": "breathe", "icon": "drop",         "key": "Digit7", "keyLabel": "7",   "type": "breathe",  "cast": 0,   "mana": 0,   "cd": 0,    "gcd": false, "targeted": false, "windup": 1.33, "regenMult": 5 },
   { "id": "revive", "icon": "heart",          "key": "Digit8", "keyLabel": "8",   "type": "revive",   "cast": 4.7, "mana": 200, "amount": 0.5, "cd": 40,   "gcd": true,  "targeted": true, "allyOnly": true, "downedOnly": true, "interruptBy": "telegraphed", "shieldProtects": true, "sameZone": true },
   { "id": "step", "icon": "arrows",            "key": "Tab",    "keyLabel": "Tab", "type": "step",     "cast": 0,   "mana": 0,   "cd": 4,    "gcd": false, "targeted": false }
 ];

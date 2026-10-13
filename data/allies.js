@@ -3,7 +3,7 @@
 // v0.5: all times rescaled so 100% game speed = the old 75% feel.
 window.DATA = window.DATA || {};
 DATA.party = {
-  "healer": { "hp": 600, "mana": 1000, "manaRegen": 15, "gcd": 1.0, "startZone": "back",
+  "healer": { "hp": 600, "mana": 1000, "manaRegen": 8, "gcd": 1.0, "startZone": "back",
               "role": "healer", "icon": "cross1", "portrait": "art/portraits/PT-Healer.png", "portraitFacing": "right" },
 
   // Portraits (v0.20): square images shown beside each frame. "portraitFacing" = the way the drawn face looks.
@@ -19,7 +19,7 @@ DATA.party = {
   "exhaustedDpsMult": 0.5,
   "invigorateSurge": true,    // Invigorate makes the ally act at once (ignores cooldown and reserve for one ability)
 
-  // v0.21: Signatures and Ultras. Wind-ups are interrupted by warned (telegraphed) attacks unless the ally is Warded.
+  // v0.21: Signatures and Ultras. "icon" = the burst shown over the boss when the move lands (icons.js). Wind-ups are interrupted by warned (telegraphed) attacks unless the ally is Warded.
   "windupInterruptBy": "telegraphed",
   "signatureInterruptCdFrac": 0.5,   // an interrupted Signature comes back after half its cooldown
   "ultraInterruptKeep": 0.5,         // an interrupted Ultra keeps half its meter
@@ -44,9 +44,9 @@ DATA.party = {
         { "id": "shield_slam", "cost": 30, "cd": 8,    "damage": 60, "effect": "guard", "duration": 4,   "takenMult": 0.7 }
       ],
       "signature": { "id": "bulwark", "tier": "signature", "targets": "party", "windup": 1.5, "cd": 28, "firstAt": 20,
-                     "damage": 0, "effect": "party_guard", "duration": 6, "takenMult": 0.7 },
+                     "damage": 0, "effect": "party_guard", "duration": 6, "takenMult": 0.8, "icon": "shield" },
       "ultra":     { "id": "last_stand", "tier": "ultra", "targets": "party", "windup": 2.0, "timing": "onThreat", "maxWait": 8,
-                     "damage": 150, "effect": "last_stand", "duration": 6, "takenMult": 0.3 },
+                     "damage": 150, "effect": "last_stand", "duration": 6, "takenMult": 0.3, "icon": "shield" },
       "rules": {
         "staminaReserve": 40,
         "callTarget":     { "interval": 26.7, "selfChance": 0.25, "duration": 6.7 },
@@ -63,9 +63,9 @@ DATA.party = {
         { "id": "lunge",  "cost": 20, "cd": 6.7, "damage": 70 }
       ],
       "signature": { "id": "overdrive", "tier": "signature", "targets": "single", "windup": 1.6, "cd": 24, "firstAt": 14,
-                     "damage": 420, "critChance": 0.3, "critMult": 1.8 },
+                     "damage": 420, "critChance": 0.3, "critMult": 1.8, "icon": "slash" },
       "ultra":     { "id": "death_blossom", "tier": "ultra", "targets": "single", "windup": 2.6, "timing": "immediate",
-                     "damage": 1300 },
+                     "damage": 1300, "icon": "slash3" },
       "rules": {
         "staminaReserve": 10,   // all-in, but not quite empty; Reckless drops this to 0
         "greedyAfterCrit": { "attack": "cleave", "damageMult": 1.5 }
@@ -80,9 +80,9 @@ DATA.party = {
         { "id": "firebolt", "cost": 25, "cd": 5.3, "damage": 110, "cast": 1.3 }
       ],
       "signature": { "id": "inferno", "tier": "signature", "targets": "all_enemies", "windup": 2.0, "cd": 26, "firstAt": 17,
-                     "damage": 260, "burn": { "dps": 22, "duration": 6 } },
+                     "damage": 260, "burn": { "dps": 22, "duration": 6 }, "icon": "flame" },
       "ultra":     { "id": "meteor", "tier": "ultra", "targets": "all_enemies", "windup": 3.0, "timing": "immediate",
-                     "damage": 800, "burn": { "dps": 40, "duration": 8 } },
+                     "damage": 800, "burn": { "dps": 40, "duration": 8 }, "icon": "meteor" },
       "rules": {
         "staminaReserve": 20,
         "followHealer": { "delay": 2 },

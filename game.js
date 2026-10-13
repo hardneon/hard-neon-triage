@@ -77,6 +77,7 @@
   const abName = id => str(`abilities.${id}.name`);
   const atkName = id => str(`boss.attacks.${id}`);
   const zoneName = z => str(`zone.${z}`);
+  const hitsZone = (z, zone) => zone === 'all' || z === zone;   // v0.22: zone attacks can hit both lines
 
   // ---------- state ----------
   let S = null;
@@ -312,6 +313,7 @@
         if (tg.exhausted && tg.stamina >= D.party.exhaustRecoverAt) tg.exhausted = false;
         tg.restless = false;
         if (D.party.invigorateSurge) tg.surge = true;   // they act at once: the payoff is visible
+        if (ab.rushSignature && tg.signature && tg.sigReadyAt !== Infinity) tg.sigReadyAt = Math.min(tg.sigReadyAt, S.t);
         tg.stamText = { text: `+${ab.amount} ⚡`, end: S.t + 1.2 };
         bark(tg.id, 'stamina_restored');
         care(tg, 'invigorate');
@@ -478,12 +480,26 @@
     if (Sg && !fx.noSignature && !a.exhausted && S.t >= a.sigReadyAt) { startWindup(a, Sg); return true; }
     return false;
   }
+  // The warned attack (if any) that will land on this ally before their wind-up finishes, and whether a Ward covers it.
+  function windupThreat(a) {
+    const cs = a.casting;
+    if (!cs?.ab.tier) return null;
+    const hits = S.boss.telegraphs.filter(tg => tg.end <= cs.end && !tg.atk.area &&
+      (tg.targetId === a.id || (tg.atk.hits === 'zone' && hitsZone(a.zone, tg.atk.zone)))).sort((x, y) => x.end - y.end);
+    if (!hits.length) return null;
+    return { atk: hits[0].atk, warded: a.shield > 0 && a.shieldEnd > hits[0].end };
+  }
+  function checkCoverMe(a) {
+    const th = windupThreat(a);
+    if (th && !th.warded && !a.casting.asked) { a.casting.asked = true; bark(a.id, 'cover_me', {}, 3, true); }
+  }
   function startWindup(a, mv) {
     a.casting = { ab: mv, start: S.t, end: S.t + mv.windup };
     if (mv.tier === 'signature') a.sigReadyAt = Infinity; // set again when it lands or is interrupted
     bark(a.id, mv.tier, {}, 3, true);                      // the shout: 'signature' / 'ultra'
     log(str('log.windup', { name: a.name, ability: str(`allyAbilities.${mv.id}`) }), mv.tier === 'ultra' ? 'good' : 'sys');
     if (mv.tier === 'ultra') S.scheduled.push({ at: S.t + 0.8, fn: () => bossBark('ally_ultra', { who: a.name }) });
+    S.scheduled.push({ at: S.t + 0.9, fn: () => { if (a.casting?.ab === mv) checkCoverMe(a); } }); // after the shout
   }
   // A wind-up broken by a warned hit (or by going down: silent)
   function interruptWindup(a, silent = false) {
@@ -494,6 +510,7 @@
     if (cs.ab.tier === 'signature') { a.sigReadyAt = S.t + cs.ab.cd * P.signatureInterruptCdFrac; a.rv.sigInt++; emit(a, 'sig_interrupted'); }
     else { a.meter = P.ultraMeterMax * P.ultraInterruptKeep; a.ultraReadyAt = null; a.rv.ultInt++; emit(a, 'ult_interrupted'); }
     log(str('log.windupInterrupted', { name: a.name, ability: name }), 'bad');
+    a.stampEnd = S.t + 1.4;
     if (!silent) bark(a.id, 'windup_interrupted', {}, 2, true);
   }
   function finishMove(a, mv) {
@@ -508,6 +525,7 @@
     moment(a);
     a.action = str(`allyAbilities.${mv.id}`) + (crit ? ` — ${str('status.crit')}` : '');
     a.actionEnd = S.t + 2; a.lungeEnd = S.t + 0.35;
+    S.burst = { icon: mv.icon, name: str(`allyAbilities.${mv.id}`), role: a.role, tier: mv.tier, end: S.t + 1.3, id: Math.random() };
     log(str('log.moveLands', { name: a.name, ability: str(`allyAbilities.${mv.id}`) }), 'good');
   }
 
@@ -627,11 +645,13 @@
       else bossBark(`attack_${atk.id}`, { target: c.name, attack: name });
       log(str('log.telegraph', { attack: name, target: c.name }), 'warn');
       emit(c, 'targeted');
+      if (c.casting?.ab.tier) checkCoverMe(c);
       const bl = c.rules?.blink;
       if (bl && c.stamina >= bl.cost && !c.exhausted) { c.stamina -= bl.cost; tg.blinked = true; bark(c.id, 'blink', {}, 2); }
       else bark(c.id, 'targeted', { attack: name }, 2);
     } else {
       log(str('log.telegraph', { attack: name, target: zoneName(atk.zone) }), 'warn');
+      for (const o of allies()) if (!o.down && hitsZone(o.zone, atk.zone)) checkCoverMe(o);
       bossBark(`attack_${atk.id}`, { attack: name });
       bark('hale', 'telegraph', { attack: name }, 2);
     }
@@ -649,7 +669,7 @@
       S.boss.areas.push({ zone: atk.zone, dps: atk.area.dps * S.diff.bossDamage, end: S.t + atk.area.duration, attackId: atk.id });
       log(str('log.areaStart', { attack: atkName(atk.id), zone: zoneName(atk.zone) }), 'warn');
     } else {
-      for (const c of living()) if (c.zone === atk.zone) damage(c, atk.damage * S.diff.bossDamage, { attackId: atk.id, telegraphed: !!atk.telegraph });
+      for (const c of living()) if (hitsZone(c.zone, atk.zone)) damage(c, atk.damage * S.diff.bossDamage, { attackId: atk.id, telegraphed: !!atk.telegraph });
     }
   }
 
@@ -665,7 +685,9 @@
     for (const a of cfg.attacks) {
       if ((a.minPhase || 1) > B.phase) continue;
       if (S.t >= B.timers[a.id]) {
-        B.timers[a.id] = S.t + (B.phase === 2 && a.intervalP2 ? a.intervalP2 : a.interval);
+        const base = B.phase === 2 && a.intervalP2 ? a.intervalP2 : a.interval;
+        const j = a.jitter ?? cfg.timingJitter ?? 0;
+        B.timers[a.id] = S.t + base * (1 + (Math.random() * 2 - 1) * j);
         beginAttack(a);
       }
     }
@@ -802,6 +824,8 @@
       let ult = null;
       if (!c.isHealer) { st = bar('st'); f.append(st); }
       if (c.ultra) { ult = bar('ult'); f.append(ult); }
+      let wind = null, stamp = null;
+      if (c.signature || c.ultra) { wind = bar('wind'); wind.hidden = true; f.insertBefore(wind, hp); stamp = el('div', 'stamp', str('status.interruptedStamp')); f.append(stamp); }
       if (c.want) f.title = str('ui.wantTip', { name: c.name, want: str(`ui.wants.${c.want}`) });
       const status = el('div', 'fstatus'); const act = el('div', 'faction'); const cap_ = el('div', 'bubble');
       const flo = el('div', 'ffloat');
@@ -809,7 +833,7 @@
       slot.append(pt, f, cap_);
       f.addEventListener('click', () => { S.target = id; });
       pt.addEventListener('click', () => { S.target = id; });
-      ui.frames[id] = { f, slot, pt, hp, st, ult, warn, status, act, cap: cap_, flo, tgt, zone: null, strip: pt.querySelector('.pstrip') };
+      ui.frames[id] = { f, slot, pt, hp, st, ult, wind, stamp, warn, status, act, cap: cap_, flo, tgt, zone: null, strip: pt.querySelector('.pstrip') };
     });
     ui.mana = bar('mana'); $('#mana').replaceChildren(ui.mana);
     ui.cast = bar('cast'); $('#cast').replaceChildren(ui.cast);
@@ -817,7 +841,7 @@
     const abBox = $('#abilities'); abBox.replaceChildren(); ui.abs = {};
     for (const ab of D.abilities) {
       const b = el('button', 'ab'); b.type = 'button';
-      b.title = str(`abilities.${ab.id}.desc`);
+      b.title = str(`abilities.${ab.id}.desc`, { mult: ab.regenMult });
       const k = el('span', 'abkey', ab.keyLabel);
       const ic = el('span', 'abicon');
       const icon = D.icons?.[ab.icon];
@@ -835,6 +859,7 @@
     }
     $('#log').replaceChildren();
     $('#bossFloats')?.replaceChildren(); ui.bossFloatKey = '';
+    $('#bossBurst')?.replaceChildren(); ui.burstKey = '';
     $('#showResult').hidden = true;
     $('#showResult').textContent = str('ui.showResult');
   }
@@ -849,6 +874,18 @@
     if (bShow) bb.textContent = B.caption;
     setCls(bb, 'show', !!bShow);
     $('#timer').textContent = `${fmtS(S.t)}s`;
+    // an ally's big move landing: one burst over the boss (rebuilt per move so the animation plays once)
+    const bu = S.burst && S.burst.end > S.t ? S.burst : null, bEl = $('#bossBurst');
+    if (bEl && (bu?.id || '') !== (ui.burstKey || '')) {
+      ui.burstKey = bu?.id || '';
+      bEl.replaceChildren();
+      if (bu) {
+        const ic = D.icons?.[bu.icon], col = D.party.roleColors?.[bu.role] || '#fff';
+        const w = el('div', `burst ${bu.tier}`); w.style.setProperty('--burst-c', col);
+        if (ic) { const s = el('span', 'bicon'); s.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="${col}">${ic.svg}</svg>`; w.append(s); }
+        w.append(el('span', 'bname', bu.name)); bEl.append(w);
+      }
+    }
     // allies' hits on the boss (rebuilt only when the set changes, so each float animates once)
     S.bossFloats = S.bossFloats.filter(x => x.end > S.t);
     const bfKey = S.bossFloats.map(x => x.id).join();
@@ -891,7 +928,7 @@
       setCls(u.hp, 'low', low);
       setCls(u.f, 'low', low);
       // incoming attacks drawn inside the frame they will hit
-      const incoming = B.telegraphs.filter(tg => tg.targetId === id || (tg.atk.hits === 'zone' && tg.atk.zone === c.zone))
+      const incoming = B.telegraphs.filter(tg => tg.targetId === id || (tg.atk.hits === 'zone' && hitsZone(c.zone, tg.atk.zone)))
         .sort((a, b) => a.end - b.end);
       if (incoming.length && !c.down) {
         const tg = incoming[0], left = Math.max(0, tg.end - S.t);
@@ -900,6 +937,19 @@
       } else if (!u.warn.hidden) u.warn.hidden = true;
       if (u.st) setBar(u.st, c.stamina / c.maxStamina, `${Math.floor(c.stamina)} st`);
       if (u.ult) { setBar(u.ult, c.meter / D.party.ultraMeterMax, ''); setCls(u.ult, 'ready', c.ultraReadyAt != null); }
+      if (u.wind) {
+        const cs = !c.down && c.casting?.ab.tier ? c.casting : null;
+        if (cs) {
+          const th = windupThreat(c);
+          const txt = str('status.windupBar', { ability: str(`allyAbilities.${cs.ab.id}`), secs: fmtS(Math.max(0, cs.end - S.t)) }) +
+            (th ? `  ${th.warded ? str('status.windupWarded') : str('status.windupThreat', { attack: atkName(th.atk.id) })}` : '');
+          setBar(u.wind, (S.t - cs.start) / (cs.end - cs.start), txt);
+          setCls(u.wind, 'threat', !!th && !th.warded);
+          setCls(u.wind, 'ultra', cs.ab.tier === 'ultra');
+        }
+        if (u.wind.hidden === !!cs) u.wind.hidden = !cs;
+        setCls(u.stamp, 'show', (c.stampEnd || 0) > S.t);
+      }
       setCls(u.pt, 'lunge', c.lungeEnd > S.t);
       setCls(u.pt, 'hit', c.hitFxEnd > S.t);
       const winding = c.casting?.ab.tier;
@@ -927,8 +977,8 @@
       if (S.taunt && S.taunt.id === id && S.taunt.end > S.t) sts.push(str('status.taunt'));
       if (c.guardEnd > S.t) sts.push(str('status.guard'));
       if (c.fearAct) sts.push(str(`status.behaviours.${c.fearAct.behaviour}`));
-      if (c.casting && !c.down) sts.push(str(c.casting.ab.tier ? 'status.windup' : 'status.casting', { ability: str(`allyAbilities.${c.casting.ab.id}`), secs: fmtS(Math.max(0, c.casting.end - S.t)) }));
-      else if (c.ultraReadyAt != null && !c.down) sts.push(str('status.ultraReady'));
+      if (c.casting && !c.down && !c.casting.ab.tier) sts.push(str('status.casting', { ability: str(`allyAbilities.${c.casting.ab.id}`) }));
+      else if (!c.casting && c.ultraReadyAt != null && !c.down) sts.push(str('status.ultraReady'));
       if (S.lastStand && S.lastStand.end > S.t && S.lastStand.id === id) sts.push(str('status.lastStand'));
       if (S.called && S.called.id === id && S.called.end > S.t) sts.push(str('status.called'));
       u.status.textContent = sts.join('  ');
@@ -997,7 +1047,7 @@
     const ab = h.cast?.ab;
     if (!ab || ab.interruptBy !== 'telegraphed') return null;
     const hits = S.boss.telegraphs.filter(tg => tg.end <= h.cast.end && !tg.atk.area &&
-      (tg.targetId === 'healer' || (tg.atk.hits === 'zone' && tg.atk.zone === h.zone))).sort((a, b) => a.end - b.end);
+      (tg.targetId === 'healer' || (tg.atk.hits === 'zone' && hitsZone(h.zone, tg.atk.zone)))).sort((a, b) => a.end - b.end);
     if (!hits.length) return null;
     const tg = hits[0];
     return { atk: tg.atk, shielded: !!(ab.shieldProtects && h.shield > 0 && h.shieldEnd > tg.end) };
@@ -1011,7 +1061,7 @@
     if (!used('aoe_heal')) return str('ui.tips.aoe');
     if (!used('shield')) return str('ui.tips.shield');
     if (!s.steps) return str('ui.tips.step');
-    if (!used('breathe') && s.manaSpent > 800) return str('ui.tips.breathe');
+    if (!used('breathe') && s.manaSpent > 800) return str('ui.tips.breathe', { mult: AB.breathe.regenMult });
     return null;
   }
 
@@ -1054,6 +1104,7 @@
       rv.append(row_);
     }
     r.append(rv);
+    if (D.settings.telemetryUrl) r.append(buildQuickFun());
     const btns = el('div', 'btns');
     const retry = el('button', 'primary', str('ui.retry')); retry.type = 'button';
     retry.addEventListener('click', startFight);
@@ -1170,6 +1221,29 @@
     }
     fs.append(wrap, el('div', 'rscale', str(`ui.scale_${name}`)));
     return fs;
+  }
+
+  // v0.22: one-tap fun rating. Sends at once; the full form below is prefilled with it.
+  function buildQuickFun() {
+    const box = el('div', 'quickfun');
+    box.setAttribute('role', 'group'); box.setAttribute('aria-label', str('ui.rateFun'));
+    box.append(el('span', 'qlabel', str('ui.quickFun')));
+    const status = el('span', 'qstatus', ''); status.setAttribute('role', 'status');
+    const btns = [];
+    for (let n = 1; n <= 5; n++) {
+      const b = el('button', 'qbtn', String(n)); b.type = 'button';
+      b.setAttribute('aria-label', str('ui.quickFunLabel', { n })); b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', () => {
+        btns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        post({ type: 'feedback', quick: true, sessionId: TEL.sessionId, runId: S.run.runId, version: S.run.version, dev: TEL.dev,
+          difficulty: S.run.difficulty, speed: S.run.speed, result: S.result ? 'win' : 'loss', fun: n });
+        const radio = document.getElementById(`r_fun_${n}`); if (radio) radio.checked = true;
+        status.textContent = str('ui.quickFunThanks');
+      });
+      btns.push(b); box.append(b);
+    }
+    box.append(status);
+    return box;
   }
 
   function buildFeedbackForm() {

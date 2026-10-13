@@ -36,6 +36,9 @@ DATA.strings = {
     "shareNames": "Include the healer name and nicknames I choose",
     "feedbackTitle": "Quick feedback",
     "rateFun": "How fun was that?",
+    "quickFun": "Fun?",
+    "quickFunLabel": "Fun: {n} of 5",
+    "quickFunThanks": "Thanks!",
     "rateHard": "How hard was that?",
     "scale_fun": "1 = not fun · 5 = very fun",
     "scale_hard": "1 = too easy · 3 = just right · 5 = too hard",
@@ -90,7 +93,7 @@ DATA.strings = {
       "Revive is only interrupted by warned attacks (orange bars). Ward yourself first and nothing can interrupt it.",
       "Out of mana? Breathe (7) to recover faster. Any action or hit stops it.",
       "Hale (shield) taunts to pull hits onto himself. Vex (dagger) hits hardest but is fragile. Pell (star) casts from the back line.",
-      "Allies run out of stamina. Invigorate (6) refills it, and they act at once.",
+      "Invigorate (6) refills an ally's stamina and fires their Signature at once. Pick the moment.",
       "Big moves need a wind-up. A warned attack (orange bar) breaks it unless that ally is Warded.",
       "Each ally Wants something (hover their frame). Give it to them to charge their Ultra (★).",
       "Under pressure, allies act out (⚠). Looking after them can calm them down.",
@@ -156,22 +159,22 @@ DATA.strings = {
     "tips": {
       "revive": "Tip: 8 revives a downed ally. Ward yourself (4) first and warned attacks can't interrupt it.",
       "aoe": "Tip: 5 (Radiance) heals your whole line over time. Cast it as Cleave's warning bar runs out.",
-      "shield": "Tip: 4 (Ward) absorbs a hit. Put it on whoever has an orange warning bar.",
+      "shield": "Tip: 4 (Ward) absorbs a hit and blocks interrupts. Put it on whoever has an orange warning bar, or an ally winding up a big move.",
       "step": "Tip: Tab switches lines, even mid-cast. Step back to dodge front-line hits.",
-      "breathe": "Tip: 7 (Breathe) triples mana regen after a short wind-up. Use it in quiet moments."
+      "breathe": "Tip: 7 (Breathe) gives ×{mult} mana regen after a short wind-up. Use it in quiet moments."
     }
   },
 
-  "zone": { "front": "front line", "back": "back line" },
+  "zone": { "front": "front line", "back": "back line", "all": "everyone" },
 
   "abilities": {
-    "light_heal":      { "name": "Mend",       "tag": "+{amount} · {cast}", "desc": "Instant small heal. Inefficient." },
+    "light_heal":      { "name": "Mend",       "tag": "+{amount} · {cast}", "desc": "Instant small heal. Cheap, but less healing per mana than Restore: use it when there's no time to cast." },
     "med_heal":        { "name": "Restore",    "tag": "+{amount} · {cast}", "desc": "Medium heal. Most mana-efficient." },
     "heavy_heal":      { "name": "Renewal",    "tag": "+{amount} · {cast}", "desc": "Big, slow heal. Start it before a big hit lands." },
-    "shield":          { "name": "Ward",       "tag": "{amount} shield · {cast}", "desc": "Absorbs damage for a while. Can target yourself." },
+    "shield":          { "name": "Ward",       "tag": "{amount} shield · blocks interrupts", "desc": "Absorbs damage for a while, and stops warned attacks (orange bars) interrupting the target's cast or wind-up. Can target yourself." },
     "aoe_heal":        { "name": "Radiance",   "tag": "+{amount} over {dur}s · line", "desc": "Heals everyone in your current line over 6 seconds. Cast it as Cleave is coming. Recasting refreshes it." },
-    "stamina_restore": { "name": "Invigorate", "tag": "+{amount} stamina", "desc": "Restore an ally's stamina." },
-    "breathe":         { "name": "Breathe",    "tag": "×{mult} mana", "desc": "After a short wind-up, triple mana regen. Any action or hit breaks it." },
+    "stamina_restore": { "name": "Invigorate", "tag": "+{amount} st · Signature now", "desc": "Restore an ally's stamina, and they start their Signature move at once. Time it: a warned attack can break their wind-up." },
+    "breathe":         { "name": "Breathe",    "tag": "×{mult} mana", "desc": "After a short wind-up, ×{mult} mana regen. Any action or hit breaks it." },
     "revive":          { "name": "Revive",     "tag": "{pct}% HP · {cast}", "desc": "Bring a downed ally back at 50% HP. Must be in their line when it finishes. Warned attacks (orange bars) interrupt it unless you're Warded. Long cooldown." },
     "step":            { "name": "Step",       "tag": "switch line", "desc": "Instantly switch lines. Your cast keeps going. Short cooldown." }
   },
@@ -192,7 +195,8 @@ DATA.strings = {
       "cleave": "Cleave",
       "crushing_blow": "Crushing Blow",
       "seeker_bolt": "Seeker Bolt",
-      "searing_ground": "Searing Ground"
+      "searing_ground": "Searing Ground",
+      "roar": "Roar"
     }
   },
 
@@ -211,6 +215,10 @@ DATA.strings = {
     "called": "☞ Called",
     "targeted": "⚠ {attack}",
     "crit": "Crit!",
+    "interruptedStamp": "Interrupted",
+    "windupBar": "{ability} {secs}s",
+    "windupThreat": "⚠ {attack} will break it",
+    "windupWarded": "◆ Warded",
     "windup": "‼ {ability} {secs}s",
     "ultraReady": "★ Ultra ready",
     "partyGuard": "▣ Bulwark",
@@ -253,6 +261,7 @@ DATA.strings = {
       "attack_cleave":        ["Fall back or fall over!", "All of you, at once!"],
       "attack_seeker_bolt":   ["Running won't save you, {target}."],
       "attack_searing_ground":["Burn where you stand!"],
+      "attack_roar":          ["Hear me!", "All of you. Down."],
       "targets_healer":       ["I see you, little healer.", "Your turn, {healerName}."],
       "ally_downed":          ["One falls.", "{who} breaks so easily."],
       "healer_downed":        ["Without their healer, they are nothing."],
@@ -277,6 +286,7 @@ DATA.strings = {
       "ultra":            ["Everything on me. NOW!"],
       "windup_interrupted": ["Broke my stance. Again."],
       "acting_out":       ["Fine. I'll make them look at me."],
+      "cover_me":         ["Setting up. Cover me!"],
       "victory":          ["Clean work."],
       "revived":          ["…I didn't need that. Back in line."],
       "review_great":     ["You kept me standing. Good.", "You'll do. Good."],
@@ -300,6 +310,7 @@ DATA.strings = {
       "signature":        ["Watch THIS, {nickname}!", "Overdrive!"],
       "ultra":            ["Showtime!"],
       "windup_interrupted": ["Hey! I was doing a thing!"],
+      "cover_me":         ["Cover me, {nickname}!", "Ward me, this is the good part!"],
       "acting_out":       ["Forget waiting, I'm going in!", "I'm bored, {nickname}. Going in!"],
       "victory":          ["Told you I'm the best.", "Told you I'm the best. You helped, {nickname}. A little."],
       "revived":          ["Okay, that didn't happen. Got it?", "Not a word, {nickname}."],
@@ -325,6 +336,7 @@ DATA.strings = {
       "signature":        ["Okay… okay. Inferno!"],
       "ultra":            ["I can do this… METEOR!"],
       "windup_interrupted": ["That— that wasn't my fault."],
+      "cover_me":         ["C-cover me? Please?"],
       "acting_out":       ["That was on purpose. Obviously.", "I'm fine. I don't need anything."],
       "victory":          ["We made it. Together."],
       "revived":          ["You came back for me… thank you."],
@@ -344,7 +356,8 @@ DATA.strings = {
       "acting_out_freeze":    ["I'm not moving. Not yet."],
       "signature":            ["Here goes!"],
       "ultra":                ["Everything I've got!"],
-      "windup_interrupted":   ["Hey!"]
+      "windup_interrupted":   ["Hey!"],
+      "cover_me":             ["Cover me!"]
     }
   }
 };

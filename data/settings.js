@@ -2,7 +2,7 @@
 // gender = grammatical gender for barks: "feminine" | "masculine" | "neutral" (neutral uses the "other" branch).
 window.DATA = window.DATA || {};
 DATA.settings = {
-  "version": "v0.21",
+  "version": "v0.22",
 
   "healerName": "Healer",
   "gender": "neutral",
@@ -20,9 +20,9 @@ DATA.settings = {
   "difficulty": "normal",
   "difficulties": {
     "story":  { "bossHp": 0.8, "bossDamage": 0.75, "reviveCd": 26.7 },
-    "normal": { "bossHp": 1.0, "bossDamage": 1.0,  "reviveCd": 40 },
-    "hard":   { "bossHp": 1.1, "bossDamage": 1.2,  "reviveCd": 40 },
-    "brutal": { "bossHp": 1.2, "bossDamage": 1.4,  "reviveCd": 60 }
+    "normal": { "bossHp": 1.0, "bossDamage": 1.15, "reviveCd": 40 },
+    "hard":   { "bossHp": 1.1, "bossDamage": 1.35, "reviveCd": 40 },
+    "brutal": { "bossHp": 1.2, "bossDamage": 1.55, "reviveCd": 60 }
   },
 
   // Feedback form. Placeholders filled in: {version} {difficulty} {speed} {result} {time} {bossPct}

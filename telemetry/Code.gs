@@ -134,7 +134,11 @@ function refreshSummary_() {
   const keep = r => !isTrue_(r.dev) && (!verFilter || String(r.version) === verFilter);
   const allRuns = readTable_(ss.getSheetByName(RUNS)), allFb = readTable_(ss.getSheetByName(FEEDBACK));
   const runs = allRuns.filter(keep);
-  const fb = allFb.filter(keep);
+  // v0.22: a run can send a quick tap and then the full form; keep only the latest entry per run
+  const fbByRun = {}, fbNoRun = [];
+  allFb.filter(keep).forEach(r => { if (r.runId) fbByRun[r.runId] = r; else fbNoRun.push(r); });
+  const fb = Object.keys(fbByRun).map(k => fbByRun[k]).concat(fbNoRun);
+  const quickOnly = fb.filter(r => isTrue_(r.quick)).length;
   const devRuns = allRuns.filter(r => isTrue_(r.dev)).length;
   const sh = ss.getSheetByName(SUMMARY) || ss.insertSheet(SUMMARY);
   sh.clear();
@@ -149,7 +153,8 @@ function refreshSummary_() {
     ['Play sessions', Object.keys(sessions).length],
     ['Wins', wins],
     ['Win rate', runs.length ? pct_(wins, runs.length) : ''],
-    ['Feedback entries', fb.length],
+    ['Feedback entries (one per fight)', fb.length],
+    ['…of which quick taps only', quickOnly],
     ['Avg fun (1–5)', avg_(fb, 'fun')],
     ['Avg hard (1–5)', avg_(fb, 'hard')],
     ['Version filter', verFilter || '(all versions)'],

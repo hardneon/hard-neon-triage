@@ -1,5 +1,5 @@
 // Boss. Attack names live in strings.js (boss.attacks.<id>).
-// hits: "single" picks one target from pool by weight; "zone" hits everyone in a zone when it lands.
+// hits: "single" picks one target from pool by weight; "zone" hits everyone in a zone ("front" | "back" | "all") when it lands.
 // pool: "front" | "back" | "any". Weights per character id; missing = 0.
 // modifiers (optional, added to weights): recentlyHealed, lowestHp, healer.
 // v0.5: all times rescaled so 100% game speed = the old 75% feel.
@@ -7,12 +7,13 @@
 window.DATA = window.DATA || {};
 DATA.boss = {
   "id": "warden",
-  "hp": 32000,         // v0.21: allies now stay busy (~2x damage); keeps fights ~2.7 min
+  "hp": 26000,         // v0.22: denser fights (~2.5 min)
+  "timingJitter": 0.2, // v0.22: each attack's next interval varies ±20% (per-attack "jitter" overrides), so warnings can overlap
   "phase2At": 0.4,
   "targeting": { "recentlyHealedWindow": 4 },
   "barks": { "duration": 4, "cooldown": 6.7, "chance": { "attack_cleave": 0.6, "attack_seeker_bolt": 0.7 } },
   "attacks": [
-    { "id": "pound", "hits": "single", "pool": "front", "interval": 2, "firstAt": 4, "telegraph": 0, "damage": 35,
+    { "id": "pound", "hits": "single", "pool": "front", "interval": 2, "firstAt": 4, "telegraph": 0, "damage": 35, "jitter": 0,
       "weights": { "hale": 80, "vex": 20, "pell": 10, "healer": 25 } },
 
     { "id": "cleave", "hits": "zone", "zone": "front", "interval": 21.3, "intervalP2": 16, "firstAt": 16, "telegraph": 3.3, "damage": 150 },
@@ -23,6 +24,9 @@ DATA.boss = {
     { "id": "seeker_bolt", "hits": "single", "pool": "back", "interval": 26.7, "firstAt": 21.3, "telegraph": 2.0, "damage": 200,
       "weights": { "pell": 70, "healer": 30 },
       "modifiers": { "recentlyHealed": 40 } },
+
+    // v0.22: hits both lines at once (zone "all"). Pre-cast Radiance, or Ward anyone winding up.
+    { "id": "roar", "hits": "zone", "zone": "all", "interval": 32, "intervalP2": 26, "firstAt": 38, "telegraph": 3.0, "damage": 90 },
 
     { "id": "searing_ground", "hits": "zone", "zone": "front", "minPhase": 2, "interval": 29.3, "firstAt": 5.3, "telegraph": 2.7,
       "area": { "dps": 18.75, "duration": 8 } }

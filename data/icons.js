@@ -21,6 +21,11 @@ window.DATA = window.DATA || {};
     role_tank:   { color: "#DBFAFC", svg: path("M12 2 L20 5 V11.5 C20 16.5 16.5 20.2 12 22 C7.5 20.2 4 16.5 4 11.5 V5 Z M12 5 V19 C15 17.6 17.5 15 17.5 11.5 V6.8 Z") },
     role_melee:  { color: "#DBFAFC", svg: path("M20.5 2 L22 3.5 L11 14.5 L9.5 13 Z M8 13 L11 16 L9.6 17.4 L8.3 16.1 L4.6 19.8 L5.4 20.6 L4 22 L2 20 L3.4 18.6 L4.2 19.4 L7.9 15.7 L6.6 14.4 Z") },
     role_ranged: { color: "#DBFAFC", svg: path("M12 1 L14 9.5 L22.5 12 L14 14.5 L12 23 L10 14.5 L1.5 12 L10 9.5 Z") },
+    // v0.22 placeholder bursts for allies' big moves (shown in the ally's role colour). Replace with final art.
+    slash:  { color: "#FFFFFF", svg: path("M3 21 L19.5 2.5 L21.5 4.5 L5 23 Z M2 14 L10 6 L11 7 L3 15 Z") },
+    slash3: { color: "#FFFFFF", svg: path("M1 18 L15 2 L16.6 3.4 L2.6 19.4 Z M5 22 L19 6 L20.6 7.4 L6.6 23.4 Z M9 23 L21 9.5 L22.5 11 L10.5 24 Z") },
+    flame:  { color: "#FFFFFF", svg: path("M12 1 C14 6 19 8 19 14.5 A7 7 0 0 1 5 14.5 C5 11 7 9 8.5 7.5 C8.5 10 9.5 11.5 11 12 C10 8 11 4 12 1 Z") },
+    meteor: { color: "#FFFFFF", svg: path("M15 16 A5.5 5.5 0 1 1 15 15.9 Z M2 2 L12 9.5 L10.5 11 Z M6 1 L14 8 L13 9 Z M1 6 L9 13 L8 14 Z") },
     arrows: { color: "#FFFFFF", svg: path("M2 12 L8 6.5 V10 H16 V6.5 L22 12 L16 17.5 V14 H8 V17.5 Z") }
   };
 })();
